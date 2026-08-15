@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VacancyRadar - Queue (ref04 prototype)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@450;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" opacity=".45"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+        VacancyRadar
+      </div>
+      <div class="top-actions">
+        <button class="btn btn-primary" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          Search Now <span class="kbd">F5</span>
+        </button>
+        <button class="btn btn-ghost" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+          Update Stats <span class="kbd">F9</span>
+        </button>
+      </div>
+      <div class="hotkey-badge">Ctrl + Alt + Q</div>
+      <nav class="nav">
+        <a class="active" href="queue.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          Queue
+        </a>
+        <a href="stats.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M10 19V5M16 19v-7M22 19V8"/></svg>
+          Stats
+        </a>
+        <a href="settings.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          Settings
+        </a>
+      </nav>
+    </header>
+
+    <main class="main">
+      <div class="queue-layout">
+        <aside class="queue-pane">
+          <div class="queue-head">
+            <h2>Vacancies (24)</h2>
+            <div class="queue-cols"><span>Status</span><span>Score</span></div>
+          </div>
+          <ul class="vac-list">
+            <li>
+              <button class="vac-item is-new" type="button">
+                <span class="vac-stripe" aria-hidden="true"></span>
+                <span class="vac-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+                </span>
+                <span class="vac-body">
+                  <div class="vac-title">Senior Frontend (Vue 3)</div>
+                  <div class="vac-company">Northwind Labs</div>
+                  <div class="vac-meta">Remote - 2h ago</div>
+                </span>
+                <span class="pill pill-new">NEW</span>
+                <span class="vac-score">92</span>
+              </button>
+            </li>
+            <li>
+              <button class="vac-item is-pointer active" type="button">
+                <span class="vac-stripe" aria-hidden="true"></span>
+                <span class="vac-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 4h8l2 4H6l2-4z"/><path d="M6 8h12v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8z"/><path d="M10 12h4"/></svg>
+                </span>
+                <span class="vac-body">
+                  <div class="vac-title">→ Backend Engineer (Python)</div>
+                  <div class="vac-company">DataStream Inc.</div>
+                  <div class="vac-meta">Remote - 5h ago</div>
+                </span>
+                <span class="pill pill-now">NOW</span>
+                <span class="vac-score">89</span>
+              </button>
+            </li>
+            <li>
+              <button class="vac-item is-invite" type="button">
+                <span class="vac-stripe" aria-hidden="true"></span>
+                <span class="vac-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+                </span>
+                <span class="vac-body">
+                  <div class="vac-title">Vue / Nuxt Developer</div>
+                  <div class="vac-company">Orbit Soft</div>
+                  <div class="vac-meta">Remote - yesterday</div>
+                </span>
+                <span class="pill pill-invite">INVITE</span>
+                <span class="vac-score">86</span>
+              </button>
+            </li>
+            <li>
+              <button class="vac-item is-apply" type="button">
+                <span class="vac-stripe" aria-hidden="true"></span>
+                <span class="vac-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21V12h6v9"/></svg>
+                </span>
+                <span class="vac-body">
+                  <div class="vac-title">Frontend Engineer</div>
+                  <div class="vac-company">BrightDesk</div>
+                  <div class="vac-meta">Remote - 1d ago</div>
+                </span>
+                <span class="pill pill-applied">APPLIED</span>
+                <span class="vac-score">81</span>
+              </button>
+            </li>
+            <li>
+              <button class="vac-item is-new" type="button">
+                <span class="vac-stripe" aria-hidden="true"></span>
+                <span class="vac-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18"/></svg>
+                </span>
+                <span class="vac-body">
+                  <div class="vac-title">Nuxt 3 Product UI</div>
+                  <div class="vac-company">Helix Commerce</div>
+                  <div class="vac-meta">Remote - 2d ago</div>
+                </span>
+                <span class="pill pill-new">NEW</span>
+                <span class="vac-score">78</span>
+              </button>
+            </li>
+            <li>
+              <button class="vac-item is-apply" type="button">
+                <span class="vac-stripe" aria-hidden="true"></span>
+                <span class="vac-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+                </span>
+                <span class="vac-body">
+                  <div class="vac-title">Middle Vue Developer</div>
+                  <div class="vac-company">Cloudyard</div>
+                  <div class="vac-meta">Remote - 3d ago</div>
+                </span>
+                <span class="pill pill-applied">APPLIED</span>
+                <span class="vac-score">74</span>
+              </button>
+            </li>
+            <li>
+              <button class="vac-item is-invite" type="button">
+                <span class="vac-stripe" aria-hidden="true"></span>
+                <span class="vac-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h8v4H8z"/><path d="M6 10h12v10H6z"/></svg>
+                </span>
+                <span class="vac-body">
+                  <div class="vac-title">Vue Team Lead</div>
+                  <div class="vac-company">Signal Peak</div>
+                  <div class="vac-meta">Remote - 4d ago</div>
+                </span>
+                <span class="pill pill-invite">INTERVIEW</span>
+                <span class="vac-score">91</span>
+              </button>
+            </li>
+          </ul>
+          <div class="queue-actions">
+            <button class="btn btn-primary" type="button">Open</button>
+            <button class="btn btn-ok" type="button">Applied</button>
+            <button class="btn btn-warn" type="button">Skip</button>
+            <button class="btn btn-danger" type="button">Remove</button>
+          </div>
+        </aside>
+
+        <section class="detail-pane">
+          <div class="detail-header">
+            <div>
+              <h1 class="detail-title">Backend Engineer (Python)</h1>
+              <div class="detail-company">
+                DataStream Inc.
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6"/><path d="M10 14L20 4"/><path d="M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5"/></svg>
+              </div>
+              <div class="detail-meta">
+                <span class="meta-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  Remote
+                </span>
+                <span class="dot"></span>
+                <span>Full-time</span>
+                <span class="dot"></span>
+                <span>Posted 5h ago</span>
+                <span class="dot"></span>
+                <span>Closes in 25 days</span>
+              </div>
+            </div>
+            <div class="score-block">
+              <div class="score-label">Match Score</div>
+              <div class="score-value">89 <span>/ 100</span></div>
+              <button class="btn btn-ghost" type="button">
+                View Job Page
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6"/><path d="M10 14L20 4"/><path d="M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="detail-grid">
+            <div class="facts">
+              <dl>
+                <div class="facts-row"><dt>Location</dt><dd>Remote (worldwide)</dd></div>
+                <div class="facts-row"><dt>Employment</dt><dd>Full-time</dd></div>
+                <div class="facts-row"><dt>Experience</dt><dd>3+ years</dd></div>
+                <div class="facts-row"><dt>Salary</dt><dd>$90k - $130k</dd></div>
+                <div class="facts-row"><dt>Schedule</dt><dd>Flexible / overlap CET</dd></div>
+              </dl>
+              <div class="skills">
+                <h3>Skills</h3>
+                <div class="skill-list">
+                  <span class="skill">Python</span>
+                  <span class="skill">Django</span>
+                  <span class="skill">REST API</span>
+                  <span class="skill">PostgreSQL</span>
+                  <span class="skill">Docker</span>
+                  <span class="skill">Vue</span>
+                </div>
+              </div>
+            </div>
+
+            <aside class="letter-card">
+              <div class="letter-head">
+                <h3>Cover Letter</h3>
+                <button class="btn btn-primary" type="button" style="padding:7px 10px;font-size:11.5px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg>
+                  Copy
+                </button>
+              </div>
+              <pre class="letter-body">Portfolio: https://gh0st0fwar.github.io/
+Telegram: @daniil_virin
+Email: 39dv@mail.ru
+
+Hello!
+
+I am interested in your Backend Engineer (Python) role.
+
+I have 6+ years of frontend experience with a strong Vue focus; Nuxt is at junior / active-growth level. Looking for remote work. Salary expectation around 160k RUB (up to ~200k negotiable).
+
+Happy to discuss next steps.</pre>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="statusbar">
+      <div class="statusbar-stats">
+      <div class="stat">
+        <div class="stat-icon teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><rect x="3" y="7" width="18" height="14" rx="2"/></svg></div>
+        <div class="stat-text"><div class="label">Total</div><div class="value">24</div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></div>
+        <div class="stat-text"><div class="label">New</div><div class="value">8</div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div class="stat-text"><div class="label">Applied</div><div class="value">10</div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a3 3 0 0 1 0 5.74"/></svg></div>
+        <div class="stat-text"><div class="label">Employer Replies</div><div class="value">4</div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h8v4H8z"/><path d="M6 10h12v10H6z"/><path d="M9 14h6M9 17h4"/></svg></div>
+        <div class="stat-text"><div class="label">Interviews</div><div class="value">2</div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v8H4v-8"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H8a2 2 0 0 1 0-4c3 0 4 4 4 4z"/><path d="M12 7h4a2 2 0 0 0 0-4c-3 0-4 4-4 4z"/></svg></div>
+        <div class="stat-text"><div class="label">Offers</div><div class="value">0</div></div>
+      </div>
+      </div>
+      <div class="updated">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+        Last Updated: 10:24 AM
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    document.querySelectorAll('.vac-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.vac-item').forEach((b) => {
+          b.classList.remove('active');
+          b.classList.remove('is-pointer');
+          const t = b.querySelector('.vac-title');
+          if (t && t.textContent.startsWith('→ ')) t.textContent = t.textContent.slice(2);
+          const pill = b.querySelector('.pill-now');
+          if (pill) {
+            pill.className = 'pill ' + (
+              b.classList.contains('is-new') ? 'pill-new' :
+              b.classList.contains('is-invite') ? 'pill-invite' :
+              b.classList.contains('is-apply') ? 'pill-applied' : 'pill-new'
+            );
+            pill.textContent = (
+              b.classList.contains('is-new') ? 'NEW' :
+              b.classList.contains('is-invite') ? 'INVITE' :
+              b.classList.contains('is-apply') ? 'APPLIED' : 'NEW'
+            );
+          }
+        });
+        btn.classList.add('active', 'is-pointer');
+        const title = btn.querySelector('.vac-title');
+        if (title && !title.textContent.startsWith('→ ')) title.textContent = '→ ' + title.textContent;
+        const pill = btn.querySelector('.pill');
+        if (pill) { pill.className = 'pill pill-now'; pill.textContent = 'NOW'; }
+      });
+    });
+  </script>
+</body>
+</html>

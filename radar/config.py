@@ -52,6 +52,11 @@ DEFAULT_CONFIG = {
     "cursor_api_key": "",
     "cursor_model": "composer-2.5",
     "cover_letter_timeout_sec": 90,
+    # UI: 04 = hybrid default (see references/04_*.png)
+    "ui_theme": "04",
+    # Embedded WebEngine zoom (1.0 = CSS px as-is). Not a Chrome browser tab.
+    "ui_zoom": 1.35,
+    "autostart_enabled": False,
 }
 
 

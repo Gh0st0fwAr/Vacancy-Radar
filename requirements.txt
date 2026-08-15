@@ -1,4 +1,5 @@
 PySide6>=6.5
+# PySide6 includes Qt WebEngine (PySide6.QtWebEngineWidgets); no extra package needed on Windows wheels.
 pynput>=1.7
 selenium>=4.15
 requests>=2.31

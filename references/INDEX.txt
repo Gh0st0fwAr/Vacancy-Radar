@@ -1,0 +1,6 @@
+﻿01_graphite_split.png — graphite list | letter+stats (theme 01)
+02_compact_pro.png — dense table / power-user (theme 02)
+03_slate_master_detail.png — master-detail + pills (theme 03)
+04_hybrid_graphite_pro_detail.png — blend / default UI (theme 04)
+
+backup_original_theme/ — snapshot of theme.py + ui.py + queue_style.py before hybrid redesign

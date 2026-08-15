@@ -8,28 +8,13 @@ import traceback
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer, Signal, QObject
-from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QTextCursor
+from PySide6.QtGui import QAction, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
-    QCheckBox,
-    QFormLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QMenu,
-    QScrollArea,
-    QSizePolicy,
-    QSplitter,
-    QStyle,
-    QStyledItemDelegate,
     QSystemTrayIcon,
-    QTextEdit,
-    QVBoxLayout,
-    QWidget,
 )
 
 from radar.clipboard_util import set_clipboard
@@ -50,67 +35,13 @@ from radar.search_hh import open_vacancy_and_prepare, search_once, upgrade_cover
 from radar.cover_letter import _api_key, is_stale_template
 from radar.sounds import beep_double, beep_once, beep_search_done, beep_six, beep_triple, sound_allowed
 from radar.alerts import detect_employer_activity, format_activity_toast
-from radar.negotiations_hh import apply_negotiations, badge_for
-from radar.queue_style import ICON_SIZE, icon_for, is_blue, is_gray_apply, is_white
+from radar.negotiations_hh import apply_negotiations
+from radar.autostart import is_autostart_enabled, set_autostart
+from radar.queue_style import is_blue, pill_label, status_kind
 from radar.stats_hh import fetch_stats
-from radar.theme import (
-    ACCENT,
-    DANGER,
-    INVITE,
-    INVITE_BG,
-    OK,
-    ScaleButton,
-    TEXT,
-    TEXT_DIM,
-    TEXT_MUTED,
-    THEME_QSS,
-    WARN,
-    apply_app_font,
-)
-
-# Маркер «активный указатель» (хоткей / последняя открытая).
-ACTIVE_ROLE = Qt.UserRole + 1
-HH_HIGHLIGHT_ROLE = Qt.UserRole + 2
-POINTER_GREEN = QColor("#8dff9a")
-SKIP_YELLOW = QColor(WARN)
-INVITE_BLUE = QColor(INVITE)
-INVITE_BG_COLOR = QColor(INVITE_BG)
-WHITE_FG = QColor("#f5f7fa")
-GRAY_APPLY = QColor("#9aa3ad")
-GRAY_APPLY_BG = QColor("#2a3038")
-
-
-class PointerGlowDelegate(QStyledItemDelegate):
-    """Активная вакансия: крупный зелёный текст без glow (читаемость)."""
-
-    def paint(self, painter: QPainter, option, index) -> None:
-        if not index.data(ACTIVE_ROLE):
-            super().paint(painter, option, index)
-            return
-
-        painter.save()
-        painter.setRenderHint(QPainter.TextAntialiasing, True)
-        rect = option.rect.adjusted(12, 4, -12, -4)
-
-        if option.state & QStyle.State_Selected:
-            painter.fillRect(option.rect.adjusted(2, 1, -2, -1), QColor(45, 90, 55, 140))
-        elif option.state & QStyle.State_MouseOver:
-            painter.fillRect(option.rect.adjusted(2, 1, -2, -1), QColor(36, 60, 42, 100))
-        else:
-            painter.fillRect(option.rect.adjusted(2, 1, -2, -1), QColor(30, 48, 36, 70))
-
-        text = index.data(Qt.DisplayRole) or ""
-        font = QFont(option.font)
-        item_font = index.data(Qt.FontRole)
-        if isinstance(item_font, QFont):
-            font = QFont(item_font)
-        font.setBold(True)
-        font.setPointSize(max(font.pointSize(), 16))
-        painter.setFont(font)
-        flags = int(Qt.AlignVCenter | Qt.AlignLeft | Qt.TextWordWrap)
-        painter.setPen(POINTER_GREEN)
-        painter.drawText(rect, flags, text)
-        painter.restore()
+from radar.theme import THEME_LABELS, apply_app_font, apply_theme
+from radar.themes import THEME_IDS
+from radar.web_host import WebUiHost
 
 
 def log(msg: str) -> None:
@@ -136,7 +67,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("VacancyRadar")
-        self.resize(1280, 820)
+        # Large default; showMaximized in run() so type/spacing match browser prototype.
+        self.resize(1600, 960)
+        self.setMinimumSize(1280, 800)
         icon_path = ASSETS / "radar.ico"
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
@@ -187,222 +120,129 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(45_000, lambda: self.stats_timer.start(stats_ms))
 
     def _build_ui(self):
-        root = QWidget()
-        self.setCentralWidget(root)
-        layout = QHBoxLayout(root)
-        layout.setContentsMargins(0, 0, 0, 0)
+        self._selected_url = ""
+        self._log_lines = []
+        zoom = float(self.cfg.get("ui_zoom") or 1.35)
+        self.web = WebUiHost(self, zoom=zoom)
+        self.setCentralWidget(self.web)
+        self._bind_web()
+        QShortcut(QKeySequence("F5"), self, activated=self.run_search)
+        QShortcut(QKeySequence("F9"), self, activated=self.run_stats)
 
-        splitter = QSplitter()
-        layout.addWidget(splitter)
+    def _bind_web(self):
+        w = self.web
+        w.bind("ready", lambda _p: self._push_all_state())
+        w.bind("search", lambda _p: self.run_search())
+        w.bind("stats", lambda _p: self.run_stats())
+        w.bind("select", lambda p: self._web_select(p.get("url") or ""))
+        w.bind("open", lambda _p: self.open_selected())
+        w.bind("mark", lambda p: self.mark_selected(str(p.get("status") or "")))
+        w.bind("copyLetter", lambda _p: self.copy_selected_letter())
+        w.bind("login", lambda _p: self.do_login_chrome())
+        w.bind("check", lambda _p: self.do_check())
+        w.bind("rebuildLetters", lambda _p: self.rebuild_letters())
+        w.bind("captureHotkey", lambda _p: self.capture_hotkey())
+        w.bind("testHotkey", lambda _p: self.test_hotkey())
+        w.bind("resetHotkey", lambda _p: self.reset_hotkey())
+        w.bind("guide", lambda p: self._web_guide(p.get("name") or ""))
+        w.bind("setOpt", lambda p: self._web_set_opts(p))
+        w.bind("setTheme", lambda p: self._web_set_theme(p.get("id") or "04"))
+        w.bind("page", lambda _p: None)
+        w.bind("_error", lambda p: self.append_log("UI: " + str((p or {}).get("error") or "")))
 
-        left = QWidget()
-        left_l = QVBoxLayout(left)
-        left_l.setContentsMargins(12, 12, 8, 12)
-        left_l.setSpacing(10)
-        q_title = QLabel("Очередь (≥70%) — новые сверху")
-        q_title.setObjectName("sectionTitle")
-        left_l.addWidget(q_title)
-        self.list = QListWidget()
-        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.list.setTextElideMode(Qt.ElideRight)
-        self.list.setWordWrap(True)
-        self.list.setMinimumHeight(160)
-        self.list.setIconSize(ICON_SIZE)
-        self.list.setSpacing(6)
-        self.list.setItemDelegate(PointerGlowDelegate(self.list))
-        self.list.currentRowChanged.connect(self.on_select)
-        left_l.addWidget(self.list, stretch=1)
+    def _push_all_state(self):
+        self.refresh_queue_list()
+        self.refresh_stats_labels()
+        self._push_settings()
+        self.web.push("hotkey", {"label": hotkey_label(self.cfg.get("hotkey") or "ctrl+alt+q")})
+        if self._log_lines:
+            self.web.push("log", {"lines": list(self._log_lines)})
 
-        btns = QHBoxLayout()
-        btns.setSpacing(10)
-        self.btn_open = ScaleButton("Открыть выбранную", role="primary")
-        self.btn_open.clicked.connect(self.open_selected)
-        self.btn_applied = ScaleButton("Откликнулся", role="ok")
-        self.btn_applied.clicked.connect(lambda: self.mark_selected("applied"))
-        self.btn_skip = ScaleButton("Скип", role="warn")
-        self.btn_skip.clicked.connect(lambda: self.mark_selected("skipped"))
-        self.btn_ban = ScaleButton("Удалить", role="danger")
-        self.btn_ban.clicked.connect(lambda: self.mark_selected("banned"))
-        for b in (self.btn_open, self.btn_applied, self.btn_skip, self.btn_ban):
-            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-            btns.addWidget(b)
-        left_l.addLayout(btns)
-        splitter.addWidget(left)
+    def _push_settings(self):
+        self.web.push(
+            "settings",
+            {
+                "sound_enabled": bool(self.cfg.get("sound_enabled", True)),
+                "dnd": bool(self.cfg.get("dnd", False)),
+                "minimize_previous": bool(self.cfg.get("minimize_previous", False)),
+                "autostart_enabled": bool(self.cfg.get("autostart_enabled", False))
+                or is_autostart_enabled(),
+                "ui_theme": str(self.cfg.get("ui_theme") or "04"),
+                "themes": [{"id": t, "label": THEME_LABELS.get(t, t)} for t in THEME_IDS],
+            },
+        )
 
-        # Right column scrolls as a whole — nothing gets squashed on short/tall windows.
-        right_scroll = QScrollArea()
-        right_scroll.setWidgetResizable(True)
-        right_scroll.setFrameShape(QScrollArea.NoFrame)
-        right_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        right_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        right_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    def _web_select(self, url: str):
+        if not url:
+            return
+        self._selected_url = url
+        self._push_detail(url)
+        self.refresh_queue_list()
 
-        right = QWidget()
-        right.setMinimumWidth(420)
-        right_l = QVBoxLayout(right)
-        right_l.setContentsMargins(8, 12, 18, 12)
-        right_l.setSpacing(12)
-        right_l.setAlignment(Qt.AlignTop)
+    def _web_guide(self, name: str):
+        if name == "stats":
+            self.show_text("Guide: HH stats", GUIDE_STATS)
+        else:
+            self.show_text("Guide: hotkey", GUIDE_HOTKEY)
 
-        act = QHBoxLayout()
-        act.setSpacing(10)
-        self.btn_login = ScaleButton("Войти в HH / Открыть Chrome", role="primary")
-        self.btn_login.clicked.connect(self.do_login_chrome)
-        self.btn_check = ScaleButton("Проверить связь")
-        self.btn_check.clicked.connect(self.do_check)
-        self.btn_search = ScaleButton("Искать сейчас", role="ok")
-        self.btn_search.clicked.connect(self.run_search)
-        self.btn_letters = ScaleButton("Пересобрать письма", role="ghost")
-        self.btn_letters.clicked.connect(self.rebuild_letters)
-        self.btn_stats = ScaleButton("Обновить статистику")
-        self.btn_stats.clicked.connect(self.run_stats)
-        for b in (self.btn_login, self.btn_check, self.btn_search, self.btn_letters, self.btn_stats):
-            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-            act.addWidget(b)
-        right_l.addLayout(act)
+    def _web_set_opts(self, p: dict):
+        self.cfg["sound_enabled"] = bool(p.get("sound_enabled"))
+        self.cfg["dnd"] = bool(p.get("dnd"))
+        self.cfg["minimize_previous"] = bool(p.get("minimize_previous"))
+        want = bool(p.get("autostart_enabled"))
+        prev = bool(self.cfg.get("autostart_enabled", False))
+        self.cfg["autostart_enabled"] = want
+        save_config(self.cfg)
+        if want != prev:
+            self.append_log(set_autostart(want))
 
-        stats_box = QGroupBox("Статистика HH (Frontend-резюме)")
-        stats_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        sf = QFormLayout(stats_box)
-        sf.setSpacing(10)
-        sf.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-        self.lbl_active = QLabel("—")
-        self.lbl_total = QLabel("—")
-        self.lbl_inv = QLabel("—")
-        self.lbl_interviews = QLabel("—")
-        self.lbl_refusals = QLabel("—")
-        self.lbl_unread = QLabel("—")
-        self.lbl_views = QLabel("—")
-        self.lbl_shows = QLabel("—")
-        self.lbl_stats_at = QLabel("ещё не обновлялось")
-        self.lbl_queue = QLabel("0")
-        for lbl in (
-            self.lbl_active,
-            self.lbl_total,
-            self.lbl_inv,
-            self.lbl_interviews,
-            self.lbl_refusals,
-            self.lbl_unread,
-            self.lbl_views,
-            self.lbl_shows,
-            self.lbl_queue,
-        ):
-            lbl.setObjectName("statsValue")
-        self.lbl_stats_at.setObjectName("mutedLabel")
-        self.lbl_stats_note = QLabel("")
-        self.lbl_stats_note.setObjectName("mutedLabel")
-        self.lbl_stats_note.setWordWrap(True)
-        sf.addRow("Ожидание (активные):", self.lbl_active)
-        sf.addRow("Всего в откликах:", self.lbl_total)
-        sf.addRow("Приглашения:", self.lbl_inv)
-        sf.addRow("Собеседования:", self.lbl_interviews)
-        sf.addRow("Отказы:", self.lbl_refusals)
-        sf.addRow("Непрочитанные чаты:", self.lbl_unread)
-        sf.addRow("Просмотры резюме:", self.lbl_views)
-        sf.addRow("Показы резюме:", self.lbl_shows)
-        sf.addRow("В очереди (новые):", self.lbl_queue)
-        sf.addRow("Обновлено:", self.lbl_stats_at)
-        sf.addRow("", self.lbl_stats_note)
-        right_l.addWidget(stats_box)
+    def _web_set_theme(self, tid: str):
+        self.cfg["ui_theme"] = str(tid or "04")
+        save_config(self.cfg)
+        apply_theme(QApplication.instance(), str(tid or "04"))
+        self.append_log("Theme: " + THEME_LABELS.get(str(tid), str(tid)))
 
-        guide_row = QHBoxLayout()
-        guide_row.setSpacing(10)
-        self.btn_guide = ScaleButton("Как подключить статистику HH", role="ghost")
-        self.btn_guide.clicked.connect(lambda: self.show_text("Гайд: статистика HH", GUIDE_STATS))
-        self.btn_guide_hk = ScaleButton("Про хоткей", role="ghost")
-        self.btn_guide_hk.clicked.connect(lambda: self.show_text("Гайд: хоткей", GUIDE_HOTKEY))
-        for b in (self.btn_guide, self.btn_guide_hk):
-            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-            guide_row.addWidget(b)
-        right_l.addLayout(guide_row)
+    def _push_detail(self, url: str):
+        v = next((x for x in self.store.items if x.url == url), None)
+        if not v:
+            self.web.push("detail", None)
+            return
+        meta = []
+        if v.remote:
+            meta.append("Remote")
+        if v.salary:
+            meta.append(v.salary)
+        if v.published:
+            meta.append(str(v.published))
+        skills = []
+        for r in (v.reasons or [])[:8]:
+            s = str(r).strip()
+            if s and len(s) < 40:
+                skills.append(s)
+        facts = [
+            {"label": "Location", "value": "Remote" if v.remote else "?"},
+            {"label": "Employment", "value": "Full-time"},
+            {"label": "Salary", "value": v.salary or "?"},
+            {"label": "Status", "value": v.status or "?"},
+            {"label": "Letter", "value": v.letter_source or "?"},
+        ]
+        self.web.push(
+            "detail",
+            {
+                "url": v.url,
+                "title": v.title or "",
+                "company": v.company or "",
+                "meta": meta,
+                "score": int(v.score or 0),
+                "facts": facts,
+                "skills": skills,
+                "letter": v.cover_letter or "",
+            },
+        )
 
-        hk_box = QGroupBox("Хоткей")
-        hk_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        hk_l = QVBoxLayout(hk_box)
-        hk_l.setSpacing(10)
-        self.lbl_hk = QLabel(hotkey_label(self.cfg.get("hotkey") or "ctrl+alt+q"))
-        self.lbl_hk.setObjectName("hotkeyBadge")
-        self.lbl_hk.setAlignment(Qt.AlignCenter)
-        self.lbl_hk.setMinimumHeight(52)
-        hk_l.addWidget(self.lbl_hk)
-        hk_btns = QHBoxLayout()
-        hk_btns.setSpacing(10)
-        self.btn_set_hk = ScaleButton("Назначить хоткей", role="primary")
-        self.btn_set_hk.clicked.connect(self.capture_hotkey)
-        self.btn_test_hk = ScaleButton("Проверить хоткей")
-        self.btn_test_hk.clicked.connect(self.test_hotkey)
-        self.btn_reset_hk = ScaleButton("Сброс Ctrl+Alt+Q", role="ghost")
-        self.btn_reset_hk.clicked.connect(self.reset_hotkey)
-        for b in (self.btn_set_hk, self.btn_test_hk, self.btn_reset_hk):
-            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-            hk_btns.addWidget(b)
-        hk_l.addLayout(hk_btns)
-        self.lbl_hk_status = QLabel("")
-        self.lbl_hk_status.setObjectName("mutedLabel")
-        self.lbl_hk_status.setWordWrap(True)
-        hk_l.addWidget(self.lbl_hk_status)
-        right_l.addWidget(hk_box)
-
-        opt = QGroupBox("Опции")
-        opt.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        ol = QVBoxLayout(opt)
-        ol.setSpacing(8)
-        self.chk_sound = QCheckBox("Звуковой сигнал (×3) при новой вакансии")
-        self.chk_sound.setChecked(bool(self.cfg.get("sound_enabled", True)))
-        self.chk_sound.stateChanged.connect(self.save_opts)
-        self.chk_dnd = QCheckBox("DND — без звука")
-        self.chk_dnd.setChecked(bool(self.cfg.get("dnd", False)))
-        self.chk_dnd.stateChanged.connect(self.save_opts)
-        self.chk_min = QCheckBox("Сворачивать предыдущее окно по хоткею")
-        self.chk_min.setChecked(bool(self.cfg.get("minimize_previous", False)))
-        self.chk_min.stateChanged.connect(self.save_opts)
-        for chk in (self.chk_sound, self.chk_dnd, self.chk_min):
-            chk.setMinimumHeight(36)
-            ol.addWidget(chk)
-        right_l.addWidget(opt)
-
-        card_title = QLabel("Карточка вакансии")
-        card_title.setObjectName("sectionTitle")
-        right_l.addWidget(card_title)
-        self.detail = QTextEdit()
-        self.detail.setReadOnly(True)
-        self.detail.setMinimumHeight(140)
-        self.detail.setMaximumHeight(220)
-        self.detail.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        right_l.addWidget(self.detail)
-
-        letter_row = QHBoxLayout()
-        letter_title = QLabel("Сопроводительное (это и есть буфер)")
-        letter_title.setObjectName("sectionTitle")
-        letter_row.addWidget(letter_title, stretch=1)
-        self.btn_copy_letter = ScaleButton("Скопировать письмо", role="primary")
-        self.btn_copy_letter.clicked.connect(self.copy_selected_letter)
-        self.btn_copy_letter.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        letter_row.addWidget(self.btn_copy_letter)
-        right_l.addLayout(letter_row)
-        self.letter_view = QTextEdit()
-        self.letter_view.setReadOnly(True)
-        self.letter_view.setMinimumHeight(200)
-        self.letter_view.setMaximumHeight(360)
-        self.letter_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        right_l.addWidget(self.letter_view)
-
-        log_title = QLabel("Лог")
-        log_title.setObjectName("sectionTitle")
-        right_l.addWidget(log_title)
-        self.log_view = QTextEdit()
-        self.log_view.setReadOnly(True)
-        self.log_view.setMinimumHeight(120)
-        self.log_view.setMaximumHeight(200)
-        self.log_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        right_l.addWidget(self.log_view)
-        right_l.addStretch(1)
-
-        right_scroll.setWidget(right)
-        splitter.addWidget(right_scroll)
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 3)
-        splitter.setChildrenCollapsible(False)
+    def show_page(self, index: int):
+        name = {0: "queue", 1: "stats", 2: "settings"}.get(int(index), "queue")
+        self.web.push("page", {"name": name})
 
     def _build_tray(self):
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -480,99 +320,84 @@ class MainWindow(QMainWindow):
 
     def append_log(self, msg: str):
         log(msg)
-        self.log_view.append(msg)
-        self.log_view.moveCursor(QTextCursor.End)
+        if not hasattr(self, "_log_lines"):
+            self._log_lines = []
+        self._log_lines.append(msg)
+        if len(self._log_lines) > 400:
+            self._log_lines = self._log_lines[-300:]
+        if hasattr(self, "web"):
+            self.web.push("log", {"line": msg, "lines": list(self._log_lines)})
         self.statusBar().showMessage(msg[:120])
 
     def save_opts(self):
-        self.cfg["sound_enabled"] = self.chk_sound.isChecked()
-        self.cfg["dnd"] = self.chk_dnd.isChecked()
-        self.cfg["minimize_previous"] = self.chk_min.isChecked()
         save_config(self.cfg)
+        if hasattr(self, "web"):
+            self._push_settings()
+
+    def on_autostart_changed(self, _state: int = 0):
+        pass
+
+    def on_theme_changed(self, _index: int = 0):
+        pass
 
     def refresh_queue_list(self):
         prev = self.selected_url()
-        self.list.clear()
         new_count = 0
-        active = self.store.active_url or self._opening_url or ""
+        visible = 0
+        applied_n = 0
+        active = self.store.active_url or getattr(self, "_opening_url", None) or ""
+        items = []
         for v in self.store.items:
             if v.status == "banned":
                 continue
-            badge = badge_for(v)
-            if v.score and int(v.score) > 0:
-                label = f"{badge}{v.score}%  {v.title}  ·  {v.company}"
-            else:
-                label = f"{badge}{v.title}  ·  {v.company}"
-            item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, v.url)
+            visible += 1
             is_active = bool(active and v.url == active)
-            item.setData(ACTIVE_ROLE, is_active)
-            blue = is_blue(v)
-            item.setData(HH_HIGHLIGHT_ROLE, blue)
-            ic = icon_for(v)
-            if not ic.isNull():
-                item.setIcon(ic)
-            # Цвета: синий ответ работодателя → серый мой отклик → белый новый → …
-            if blue:
-                item.setBackground(INVITE_BG_COLOR)
-                item.setForeground(INVITE_BLUE)
-                f = item.font()
-                f.setBold(True)
-                f.setPointSize(max(f.pointSize(), 15))
-                item.setFont(f)
-            elif is_gray_apply(v):
-                item.setBackground(GRAY_APPLY_BG)
-                item.setForeground(GRAY_APPLY)
-                f = item.font()
-                f.setPointSize(max(f.pointSize(), 13))
-                item.setFont(f)
-            elif is_white(v) or v.status == "new":
+            kind = status_kind(v, is_active=is_active)
+            if kind == "new":
                 new_count += 1
-                item.setForeground(WHITE_FG)
-                f = item.font()
-                f.setBold(True)
-                f.setPointSize(max(f.pointSize(), 14))
-                item.setFont(f)
-            elif v.status == "visited":
-                item.setForeground(QColor(TEXT_DIM))
-            elif v.status == "skipped":
-                item.setForeground(SKIP_YELLOW)
-                item.setText("⏭ " + item.text())
-            # Зелёный только у активного указателя (поверх остальных цветов текста).
-            if is_active:
-                f = item.font()
-                f.setBold(True)
-                f.setPointSize(max(f.pointSize(), 16))
-                item.setFont(f)
-                item.setForeground(POINTER_GREEN)
-                t = item.text()
-                if t.startswith("⏭ "):
-                    t = t[2:]
-                if not t.startswith("→ "):
-                    item.setText("→ " + t)
-            self.list.addItem(item)
-        self.lbl_queue.setText(str(new_count))
-        # Сохранить выделение: сначала активный указатель, иначе прежний выбор.
-        restore = active or prev
+            if kind == "apply":
+                applied_n += 1
+            title = v.title or ""
+            if is_active and not title.startswith("→ "):
+                title = "→ " + title
+            meta_bits = []
+            if v.remote:
+                meta_bits.append("Remote")
+            if v.salary:
+                meta_bits.append(v.salary)
+            if v.published:
+                meta_bits.append(str(v.published))
+            elif v.found_at:
+                meta_bits.append(str(v.found_at)[:16].replace("T", " "))
+            items.append(
+                {
+                    "url": v.url,
+                    "title": title,
+                    "company": v.company or "",
+                    "meta": " · ".join(meta_bits),
+                    "score": int(v.score or 0),
+                    "kind": kind,
+                    "pill": pill_label(kind, v),
+                    "blue": is_blue(v),
+                }
+            )
+        restore = active or prev or getattr(self, "_selected_url", "")
         if restore:
-            self._select_url(restore)
+            self._selected_url = restore
+        counts = {"total": visible, "new": new_count, "applied": applied_n}
+        if hasattr(self, "web"):
+            self.web.push(
+                "queue",
+                {"items": items, "counts": counts, "selectedUrl": self._selected_url or ""},
+            )
+            if self._selected_url:
+                self._push_detail(self._selected_url)
 
-    def on_select(self, row: int):
-        if row < 0:
-            return
-        item = self.list.item(row)
-        url = item.data(Qt.UserRole)
-        v = next((x for x in self.store.items if x.url == url), None)
-        if not v:
-            return
-        # Metadata only — never mixed into the cover letter / clipboard.
-        self.detail.setPlainText(
-            f"{v.title}\n{v.company}\n{v.url}\n\n"
-            f"Score: {v.score}%\nЗП: {v.salary or 'не указана'}\nСтатус: {v.status}\n"
-            f"Письмо: {v.letter_source or '—'}\n\n"
-            f"Почему (только для тебя):\n" + "\n".join(v.reasons)
-        )
-        self.letter_view.setPlainText(v.cover_letter or "")
+    def on_select(self, row: int = -1):
+        return
+
+    def selected_url(self):
+        return getattr(self, "_selected_url", None) or None
 
     def copy_selected_letter(self):
         url = self.selected_url()
@@ -587,10 +412,6 @@ class MainWindow(QMainWindow):
             self.append_log("Письмо скопировано (только контакты + текст)")
         else:
             self.append_log("Не удалось скопировать письмо")
-
-    def selected_url(self):
-        item = self.list.currentItem()
-        return item.data(Qt.UserRole) if item else None
 
     def mark_selected(self, status: str):
         url = self.selected_url()
@@ -614,8 +435,8 @@ class MainWindow(QMainWindow):
     def on_hotkey(self):
         if getattr(self, "_hk_test_mode", False):
             self._hk_test_mode = False
-            self.lbl_hk_status.setText("Тест OK — хоткей сработал")
-            self.lbl_hk_status.setStyleSheet(f"color: {OK}; font-weight: 700; font-size: 16px;")
+            self.web.push("hotkey", {"status": "Тест OK — хоткей сработал"})
+
             self.append_log("Тест хоткея: OK")
             return
         if sound_allowed(self.cfg):
@@ -657,12 +478,10 @@ class MainWindow(QMainWindow):
         return ok
 
     def _select_url(self, url: str) -> None:
-        for i in range(self.list.count()):
-            item = self.list.item(i)
-            if item and item.data(Qt.UserRole) == url:
-                self.list.setCurrentRow(i)
-                self.list.scrollToItem(item)
-                return
+        if not url:
+            return
+        self._selected_url = url
+        self._push_detail(url)
 
     def _letter_ready(self, v) -> bool:
         text = (v.cover_letter or "").strip()
@@ -709,13 +528,8 @@ class MainWindow(QMainWindow):
         if letter_ok:
             clip_ok = self._copy_letter_ui(v.cover_letter or "", block=False)
 
-        self.letter_view.setPlainText(v.cover_letter or "(письмо генерируется…)")
-        self.detail.setPlainText(
-            f"{v.title}\n{v.company}\n{v.url}\n\n"
-            f"Score: {v.score}%\nЗП: {v.salary or 'не указана'}\nСтатус: {v.status}\n"
-            f"Письмо: {v.letter_source or ('ожидается' if not letter_ok else '—')}\n\n"
-            f"Почему (только для тебя):\n" + "\n".join(v.reasons)
-        )
+        self._selected_url = v.url
+        self._push_detail(v.url)
         self.refresh_queue_list()
         self._select_url(v.url)
         QApplication.processEvents()
@@ -813,7 +627,7 @@ class MainWindow(QMainWindow):
             self.append_log("Поиск уже идёт…")
             return
         self._busy_search = True
-        self.btn_search.setEnabled(False)
+        self.web.set_busy(search=True)
         self.append_log("Поиск HH… (deep: полный текст каждой новой вакансии)")
 
         def job():
@@ -829,17 +643,17 @@ class MainWindow(QMainWindow):
 
     def _on_search_timeout(self):
         self._busy_search = False
-        self.btn_search.setEnabled(True)
+        self.web.set_busy(search=False)
         self.append_log("Поиск: таймаут. Проверьте, что Chrome Radar открыт и вы залогинены.")
 
     def _on_search_fail(self, err: str):
         self._busy_search = False
-        self.btn_search.setEnabled(True)
+        self.web.set_busy(search=False)
         self.append_log("Ошибка поиска: " + (err or "").splitlines()[0])
 
     def _on_search_done(self, result):
         self._busy_search = False
-        self.btn_search.setEnabled(True)
+        self.web.set_busy(search=False)
         if not result or not result.get("ok"):
             self.append_log("Поиск: " + ((result or {}).get("error") or "ошибка"))
             return
@@ -898,13 +712,12 @@ class MainWindow(QMainWindow):
                 v = next((x for x in self.store.items if x.url == target), None)
                 if v and self._letter_ready(v):
                     self._copy_letter_ui(v.cover_letter)
-                    self.letter_view.setPlainText(v.cover_letter or "")
+                    self._push_detail(v.url)
                     if beep_on_ready and sound_allowed(self.cfg):
                         beep_double()
                         self.append_log("Письмо готово → буфер (двойной писк)")
-            row = self.list.currentRow()
-            if row >= 0:
-                self.on_select(row)
+            if self._selected_url:
+                self._push_detail(self._selected_url)
             self.append_log(f"Письма обновлены: {n}")
 
         self._run_bg(job, done, timeout_sec=600)
@@ -914,7 +727,7 @@ class MainWindow(QMainWindow):
             self.append_log("Статистика уже обновляется…")
             return
         self._busy_stats = True
-        self.btn_stats.setEnabled(False)
+        self.web.set_busy(stats=True)
         self._stats_prev = load_json(STATS_PATH, {})
         self.append_log("Обновляю статистику…")
         self._run_bg(
@@ -927,12 +740,12 @@ class MainWindow(QMainWindow):
 
     def _on_stats_timeout(self):
         self._busy_stats = False
-        self.btn_stats.setEnabled(True)
+        self.web.set_busy(stats=False)
         self.append_log("Статистика: таймаут. Chrome занят или не залогинен.")
 
     def _on_stats_fail(self, err: str):
         self._busy_stats = False
-        self.btn_stats.setEnabled(True)
+        self.web.set_busy(stats=False)
         self.append_log("Статистика: " + (err or "").splitlines()[0])
 
     def _notify_employer_activity(self, events):
@@ -958,7 +771,7 @@ class MainWindow(QMainWindow):
 
     def _on_stats(self, st):
         self._busy_stats = False
-        self.btn_stats.setEnabled(True)
+        self.web.set_busy(stats=False)
         st = st or {}
         prev = getattr(self, "_stats_prev", {}) or {}
         events = detect_employer_activity(prev, st)
@@ -1003,38 +816,45 @@ class MainWindow(QMainWindow):
 
     def refresh_stats_labels(self, st=None):
         st = st or load_json(STATS_PATH, {})
-
-        def fmt(v):
-            return "—" if v is None else str(v)
-
-        self.lbl_active.setText(fmt(st.get("active_responses")))
-        self.lbl_total.setText(fmt(st.get("total_responses")))
-        self.lbl_inv.setText(fmt(st.get("invitations")))
-        self.lbl_interviews.setText(fmt(st.get("interviews")))
-        self.lbl_refusals.setText(fmt(st.get("refusals")))
-        self.lbl_unread.setText(fmt(st.get("unread_messages")))
-        self.lbl_views.setText(fmt(st.get("resume_views")))
-        self.lbl_shows.setText(fmt(st.get("resume_shows")))
-        self.lbl_stats_at.setText(st.get("updated_at") or "ещё не обновлялось")
+        new_count = sum(
+            1
+            for v in self.store.items
+            if v.status not in ("banned",) and status_kind(v) == "new"
+        )
+        applied_n = sum(
+            1
+            for v in self.store.items
+            if v.status != "banned" and status_kind(v) == "apply"
+        )
+        visible = sum(1 for v in self.store.items if v.status != "banned")
         note = ""
         if st.get("stale"):
-            note = "Показаны последние успешные значения (последний съём был неполным)"
+            note = "Showing last good values (incomplete fetch)"
         elif st.get("error") and not st.get("ok"):
-            note = st.get("error")
-        self.lbl_stats_note.setText(note)
+            note = st.get("error") or ""
+        payload = dict(st)
+        payload["note"] = note
+        if hasattr(self, "web"):
+            self.web.push(
+                "stats",
+                {
+                    "stats": payload,
+                    "counts": {"total": visible, "new": new_count, "applied": applied_n},
+                },
+            )
 
     def capture_hotkey(self):
-        self.lbl_hk_status.setText("Жду нажатие… (клавиши или боковая кнопка мыши)")
-        self.lbl_hk_status.setStyleSheet(f"color: {ACCENT}; font-weight: 700; font-size: 16px;")
+        self.web.push("hotkey", {"status": "Жду нажатие… (клавиши или боковая кнопка мыши)"})
+
         self.hotkeys.start_capture(lambda s: self.hotkey_captured.emit(s))
 
     def on_hotkey_captured(self, combo: str):
         self.cfg["hotkey"] = combo
         save_config(self.cfg)
         self.hotkeys.set_hotkey(combo)
-        self.lbl_hk.setText(hotkey_label(combo))
-        self.lbl_hk_status.setText(f"Сохранено: {hotkey_label(combo)}")
-        self.lbl_hk_status.setStyleSheet(f"color: {OK}; font-weight: 700; font-size: 16px;")
+        self.web.push("hotkey", {"label": hotkey_label(combo)})
+        self.web.push("hotkey", {"status": f"Сохранено: {hotkey_label(combo)}"})
+
         self.append_log(f"Хоткей назначен: {combo}")
 
     def reset_hotkey(self):
@@ -1042,15 +862,15 @@ class MainWindow(QMainWindow):
 
     def test_hotkey(self):
         self._hk_test_mode = True
-        self.lbl_hk_status.setText("Тест: нажмите хоткей в течение 5 сек…")
-        self.lbl_hk_status.setStyleSheet(f"color: {ACCENT}; font-weight: 700; font-size: 16px;")
+        self.web.push("hotkey", {"status": "Тест: нажмите хоткей в течение 5 сек…"})
+
         QTimer.singleShot(5000, self._test_hk_timeout)
 
     def _test_hk_timeout(self):
         if getattr(self, "_hk_test_mode", False):
             self._hk_test_mode = False
-            self.lbl_hk_status.setText("Тест: не поймали нажатие. Проверьте назначение.")
-            self.lbl_hk_status.setStyleSheet(f"color: {DANGER}; font-weight: 700; font-size: 16px;")
+            self.web.push("hotkey", {"status": "Тест: не поймали нажатие. Проверьте назначение."})
+
 
     def show_text(self, title: str, body: str):
         box = QMessageBox(self)
@@ -1127,10 +947,11 @@ def run():
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("VacancyRadar")
     apply_app_font(app)
-    app.setStyleSheet(THEME_QSS)
+    cfg0 = load_config()
+    apply_theme(app, str(cfg0.get("ui_theme") or "04"))
     icon_path = ASSETS / "radar.ico"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
     win = MainWindow()
-    win.show()
+    win.showMaximized()
     return app.exec()

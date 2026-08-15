@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Graphite high-contrast theme for VacancyRadar (large type)."""
+"""Theme tokens + ScaleButton. Palettes live in radar.themes."""
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, Qt
@@ -11,312 +11,86 @@ from PySide6.QtWidgets import (
     QStyleOptionButton,
 )
 
+from .themes import THEME_IDS, THEME_LABELS, build_qss, get_palette
 
-BG = "#1c2128"
-BG_PANEL = "#252b33"
-BG_ELEVATED = "#2e3640"
-BG_INPUT = "#181c22"
-BORDER = "#4a5562"
-BORDER_SOFT = "#3a4450"
-TEXT = "#e8edf2"
-TEXT_DIM = "#a8b3c0"
-TEXT_MUTED = "#7d8a99"
-ACCENT = "#6ec8b8"
-ACCENT_DIM = "#3d7a70"
-DANGER = "#d47878"
-OK = "#7bc47f"
-WARN = "#e6c35c"
-INVITE = "#7eb6f0"
-INVITE_BG = "#1e3348"
+# Module-level tokens (mutated by apply_theme) — keep import-compat for ui.py
+_DEFAULT = get_palette("04")
+BG = _DEFAULT["BG"]
+BG_PANEL = _DEFAULT["BG_PANEL"]
+BG_ELEVATED = _DEFAULT["BG_ELEVATED"]
+BG_INPUT = _DEFAULT["BG_INPUT"]
+BORDER = _DEFAULT["BORDER"]
+BORDER_SOFT = _DEFAULT["BORDER_SOFT"]
+TEXT = _DEFAULT["TEXT"]
+TEXT_DIM = _DEFAULT["TEXT_DIM"]
+TEXT_MUTED = _DEFAULT["TEXT_MUTED"]
+ACCENT = _DEFAULT["ACCENT"]
+ACCENT_DIM = _DEFAULT["ACCENT_DIM"]
+DANGER = _DEFAULT["DANGER"]
+OK = _DEFAULT["OK"]
+WARN = _DEFAULT["WARN"]
+INVITE = _DEFAULT["INVITE"]
+INVITE_BG = _DEFAULT["INVITE_BG"]
+WHITE_FG = _DEFAULT["WHITE_FG"]
+GRAY_APPLY = _DEFAULT["GRAY_APPLY"]
+GRAY_APPLY_BG = _DEFAULT["GRAY_APPLY_BG"]
+POINTER_FG = _DEFAULT["POINTER_FG"]
+POINTER_BG = _DEFAULT["POINTER_BG"]
+POINTER_STRIPE = _DEFAULT["POINTER_STRIPE"]
+NEW_STRIPE = _DEFAULT["NEW_STRIPE"]
+GRAY_STRIPE = _DEFAULT["GRAY_STRIPE"]
+WHITE_STRIPE = _DEFAULT["WHITE_STRIPE"]
+
+THEME_QSS = build_qss(_DEFAULT)
+_CURRENT_THEME_ID = "04"
 
 
-THEME_QSS = f"""
-* {{
-    font-family: "Segoe UI", "Arial", sans-serif;
-    font-size: 16px;
-    color: {TEXT};
-}}
+def current_theme_id() -> str:
+    return _CURRENT_THEME_ID
 
-QMainWindow, QWidget {{
-    background-color: {BG};
-    color: {TEXT};
-}}
 
-QLabel {{
-    color: {TEXT};
-    font-size: 16px;
-    background: transparent;
-}}
+def apply_theme(app_or_widget, theme_id: str = "04") -> str:
+    """Apply palette + QSS. Returns resolved theme id."""
+    global BG, BG_PANEL, BG_ELEVATED, BG_INPUT, BORDER, BORDER_SOFT
+    global TEXT, TEXT_DIM, TEXT_MUTED, ACCENT, ACCENT_DIM, DANGER, OK, WARN
+    global INVITE, INVITE_BG, WHITE_FG, GRAY_APPLY, GRAY_APPLY_BG
+    global POINTER_FG, POINTER_BG, POINTER_STRIPE, NEW_STRIPE, GRAY_STRIPE, WHITE_STRIPE
+    global THEME_QSS, _CURRENT_THEME_ID
 
-QLabel#sectionTitle {{
-    font-size: 19px;
-    font-weight: 700;
-    color: {TEXT};
-    padding: 6px 0 10px 0;
-}}
-
-QLabel#hotkeyBadge {{
-    font-size: 24px;
-    font-weight: 700;
-    color: {ACCENT};
-    padding: 12px 16px;
-    background-color: {BG_ELEVATED};
-    border: 1px solid {ACCENT_DIM};
-    border-radius: 12px;
-}}
-
-QLabel#statsValue {{
-    font-size: 20px;
-    font-weight: 700;
-    color: {ACCENT};
-}}
-
-QLabel#mutedLabel {{
-    font-size: 15px;
-    color: {TEXT_MUTED};
-}}
-
-QGroupBox {{
-    font-size: 18px;
-    font-weight: 700;
-    color: {TEXT};
-    border: 1px solid {BORDER};
-    border-radius: 14px;
-    margin-top: 18px;
-    padding-top: 22px;
-    padding-left: 16px;
-    padding-right: 16px;
-    padding-bottom: 14px;
-    background-color: {BG_PANEL};
-}}
-
-QGroupBox::title {{
-    subcontrol-origin: margin;
-    subcontrol-position: top left;
-    left: 16px;
-    padding: 0 10px;
-    color: {ACCENT};
-}}
-
-QScrollArea {{
-    background-color: {BG};
-    border: none;
-}}
-
-QScrollArea > QWidget > QWidget {{
-    background-color: {BG};
-}}
-
-QListWidget {{
-    background-color: {BG_INPUT};
-    border: 1px solid {BORDER};
-    border-radius: 14px;
-    padding: 10px;
-    font-size: 18px;
-    outline: none;
-}}
-
-QListWidget::item {{
-    padding: 16px 16px 16px 8px;
-    margin: 5px 2px;
-    border-radius: 10px;
-    border: 1px solid transparent;
-    min-height: 48px;
-}}
-
-QListWidget::item:selected {{
-    background-color: {ACCENT_DIM};
-    border: 1px solid {ACCENT};
-    color: {TEXT};
-}}
-
-QListWidget::item:hover:!selected {{
-    background-color: {BG_ELEVATED};
-    border: 1px solid {BORDER};
-}}
-
-QTextEdit {{
-    background-color: {BG_INPUT};
-    border: 1px solid {BORDER};
-    border-radius: 14px;
-    padding: 14px;
-    font-size: 17px;
-    line-height: 1.45;
-    selection-background-color: {ACCENT_DIM};
-}}
-
-QCheckBox {{
-    font-size: 17px;
-    spacing: 12px;
-    padding: 8px 2px;
-    color: {TEXT};
-    background: transparent;
-}}
-
-QCheckBox::indicator {{
-    width: 24px;
-    height: 24px;
-    border-radius: 7px;
-    border: 2px solid {BORDER};
-    background: {BG_INPUT};
-}}
-
-QCheckBox::indicator:checked {{
-    background-color: {ACCENT};
-    border-color: {ACCENT};
-}}
-
-QCheckBox::indicator:hover {{
-    border-color: {ACCENT};
-}}
-
-QPushButton {{
-    background-color: {BG_ELEVATED};
-    color: {TEXT};
-    border: 1px solid {BORDER};
-    border-radius: 14px;
-    padding: 14px 20px;
-    font-size: 16px;
-    font-weight: 600;
-    min-height: 26px;
-}}
-
-QPushButton:hover {{
-    background-color: #3a4452;
-    border: 2px solid {ACCENT};
-    color: {TEXT};
-}}
-
-QPushButton:pressed {{
-    background-color: #222830;
-    border: 2px solid {ACCENT_DIM};
-}}
-
-QPushButton:disabled {{
-    background-color: #22262c;
-    color: {TEXT_MUTED};
-    border-color: {BORDER_SOFT};
-}}
-
-QPushButton#primaryBtn {{
-    background-color: #2f5f58;
-    border: 2px solid {ACCENT};
-    color: #f2fffc;
-    font-size: 17px;
-}}
-
-QPushButton#primaryBtn:hover {{
-    background-color: #3a756c;
-    border: 2px solid #8fd9cb;
-}}
-
-QPushButton#primaryBtn:pressed {{
-    background-color: #244842;
-}}
-
-QPushButton#okBtn {{
-    background-color: #2d4a32;
-    border: 2px solid {OK};
-}}
-
-QPushButton#okBtn:hover {{
-    background-color: #3a5f40;
-}}
-
-QPushButton#dangerBtn {{
-    background-color: #4a2e2e;
-    border: 2px solid {DANGER};
-}}
-
-QPushButton#dangerBtn:hover {{
-    background-color: #5c3838;
-}}
-
-QPushButton#warnBtn {{
-    background-color: #4a4020;
-    border: 2px solid {WARN};
-    color: #fff6d5;
-}}
-
-QPushButton#warnBtn:hover {{
-    background-color: #5c4f28;
-    border: 2px solid #f0d56a;
-}}
-
-QPushButton#ghostBtn {{
-    background-color: transparent;
-    border: 1px dashed {BORDER};
-}}
-
-QStatusBar {{
-    background-color: {BG_PANEL};
-    color: {TEXT_DIM};
-    font-size: 15px;
-    border-top: 1px solid {BORDER_SOFT};
-    padding: 6px 12px;
-    min-height: 28px;
-}}
-
-QSplitter::handle {{
-    background-color: {BORDER_SOFT};
-    width: 4px;
-    margin: 10px 5px;
-    border-radius: 2px;
-}}
-
-QScrollBar:vertical {{
-    background: {BG};
-    width: 18px;
-    margin: 2px;
-    border: none;
-}}
-
-QScrollBar::handle:vertical {{
-    background: {BORDER};
-    min-height: 48px;
-    border-radius: 9px;
-    border: 1px solid {BORDER_SOFT};
-}}
-
-QScrollBar::handle:vertical:hover {{
-    background: {ACCENT_DIM};
-}}
-
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-    height: 0;
-}}
-
-QScrollBar:horizontal {{
-    background: {BG};
-    height: 14px;
-    margin: 2px;
-    border: none;
-}}
-
-QScrollBar::handle:horizontal {{
-    background: {BORDER};
-    min-width: 40px;
-    border-radius: 7px;
-}}
-
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
-    width: 0;
-}}
-
-QMessageBox {{
-    background-color: {BG_PANEL};
-}}
-
-QMessageBox QLabel {{
-    font-size: 17px;
-    color: {TEXT};
-    min-width: 420px;
-}}
-
-QFormLayout {{
-    font-size: 16px;
-}}
-"""
+    tid = str(theme_id or "04")
+    if tid not in THEME_IDS:
+        tid = "04"
+    p = get_palette(tid)
+    BG = p["BG"]
+    BG_PANEL = p["BG_PANEL"]
+    BG_ELEVATED = p["BG_ELEVATED"]
+    BG_INPUT = p["BG_INPUT"]
+    BORDER = p["BORDER"]
+    BORDER_SOFT = p["BORDER_SOFT"]
+    TEXT = p["TEXT"]
+    TEXT_DIM = p["TEXT_DIM"]
+    TEXT_MUTED = p["TEXT_MUTED"]
+    ACCENT = p["ACCENT"]
+    ACCENT_DIM = p["ACCENT_DIM"]
+    DANGER = p["DANGER"]
+    OK = p["OK"]
+    WARN = p["WARN"]
+    INVITE = p["INVITE"]
+    INVITE_BG = p["INVITE_BG"]
+    WHITE_FG = p["WHITE_FG"]
+    GRAY_APPLY = p["GRAY_APPLY"]
+    GRAY_APPLY_BG = p["GRAY_APPLY_BG"]
+    POINTER_FG = p["POINTER_FG"]
+    POINTER_BG = p["POINTER_BG"]
+    POINTER_STRIPE = p["POINTER_STRIPE"]
+    NEW_STRIPE = p["NEW_STRIPE"]
+    GRAY_STRIPE = p["GRAY_STRIPE"]
+    WHITE_STRIPE = p["WHITE_STRIPE"]
+    THEME_QSS = build_qss(p)
+    _CURRENT_THEME_ID = tid
+    if app_or_widget is not None:
+        app_or_widget.setStyleSheet(THEME_QSS)
+    return tid
 
 
 class ScaleButton(QPushButton):
@@ -400,6 +174,46 @@ class ScaleButton(QPushButton):
 
 
 def apply_app_font(app) -> None:
-    font = QFont("Segoe UI", 12)
+    from PySide6.QtGui import QFontDatabase
+
+    available = set(QFontDatabase.families())
+    family = "Segoe UI"
+    for cand in ("Inter", "Cascadia Sans", "Segoe UI Variable Text", "Segoe UI"):
+        if cand in available:
+            family = cand
+            break
+    font = QFont(family, 11)
     font.setStyleHint(QFont.SansSerif)
     app.setFont(font)
+
+
+__all__ = [
+    "THEME_IDS",
+    "THEME_LABELS",
+    "THEME_QSS",
+    "ScaleButton",
+    "apply_app_font",
+    "apply_theme",
+    "current_theme_id",
+    "BG",
+    "BG_PANEL",
+    "TEXT",
+    "TEXT_DIM",
+    "TEXT_MUTED",
+    "ACCENT",
+    "ACCENT_DIM",
+    "DANGER",
+    "OK",
+    "WARN",
+    "INVITE",
+    "INVITE_BG",
+    "WHITE_FG",
+    "GRAY_APPLY",
+    "GRAY_APPLY_BG",
+    "POINTER_FG",
+    "POINTER_BG",
+    "POINTER_STRIPE",
+    "NEW_STRIPE",
+    "GRAY_STRIPE",
+    "WHITE_STRIPE",
+]

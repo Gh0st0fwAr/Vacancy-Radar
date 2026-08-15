@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VacancyRadar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@450;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="app.css?v=20260815e" />
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" opacity=".45"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+        VacancyRadar
+      </div>
+      <div class="top-actions">
+        <button class="btn btn-primary" type="button" id="btn-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          Search Now <span class="kbd">F5</span>
+        </button>
+        <button class="btn btn-ghost" type="button" id="btn-stats">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+          Update Stats <span class="kbd">F9</span>
+        </button>
+      </div>
+      <div class="hotkey-badge" id="hotkey-badge">Ctrl + Alt + Q</div>
+      <nav class="nav">
+        <a href="#" class="active" data-page="queue" id="nav-queue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          Queue
+        </a>
+        <a href="#" data-page="stats" id="nav-stats">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M10 19V5M16 19v-7M22 19V8"/></svg>
+          Stats
+        </a>
+        <a href="#" data-page="settings" id="nav-settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          Settings
+        </a>
+      </nav>
+    </header>
+
+    <main class="main">
+      <!-- QUEUE -->
+      <div class="queue-layout page-panel" id="page-queue">
+        <aside class="queue-pane">
+          <div class="queue-head">
+            <h2 id="vac-count">Vacancies (0)</h2>
+            <div class="queue-cols"><span>Status</span><span>Score</span></div>
+          </div>
+          <ul class="vac-list" id="vac-list"></ul>
+          <div class="queue-actions">
+            <button class="btn btn-primary" type="button" id="btn-open">Open</button>
+            <button class="btn btn-ok" type="button" id="btn-applied">Applied</button>
+            <button class="btn btn-warn" type="button" id="btn-skip">Skip</button>
+            <button class="btn btn-danger" type="button" id="btn-ban">Remove</button>
+          </div>
+        </aside>
+        <section class="detail-pane">
+          <div class="detail-header">
+            <div>
+              <h1 class="detail-title" id="d-title">Select a vacancy</h1>
+              <div class="detail-company" id="d-company"></div>
+              <div class="detail-meta" id="d-meta"></div>
+            </div>
+            <div class="score-block">
+              <div class="score-label">Match Score</div>
+              <div class="score-value" id="d-score">-</div>
+              <button class="btn btn-ghost" type="button" id="btn-view">View Job Page
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6"/><path d="M10 14L20 4"/><path d="M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="facts">
+              <dl id="d-facts"></dl>
+              <div class="skills">
+                <h3>Skills</h3>
+                <div class="skill-list" id="d-skills"></div>
+              </div>
+            </div>
+            <aside class="letter-card">
+              <div class="letter-head">
+                <h3>Cover Letter</h3>
+                <button class="btn btn-primary" type="button" id="btn-copy" style="padding:7px 10px;font-size:11.5px">Copy</button>
+              </div>
+              <pre class="letter-body" id="d-letter"></pre>
+            </aside>
+          </div>
+        </section>
+      </div>
+
+      <!-- STATS -->
+      <div class="page page-panel" id="page-stats" hidden>
+        <h1 class="page-title">HH Statistics</h1>
+        <p class="page-sub">Frontend resume metrics from Chrome session.</p>
+        <div class="panel-row">
+          <button class="btn btn-primary" type="button" id="btn-login">Open HH / Chrome login</button>
+          <button class="btn btn-ghost" type="button" id="btn-check">Check connection</button>
+          <button class="btn btn-ghost" type="button" id="btn-letters">Rebuild cover letters</button>
+          <button class="btn" type="button" id="btn-stats2">Refresh stats</button>
+        </div>
+        <div class="cards" id="stats-cards"></div>
+        <div class="panel">
+          <h3>Breakdown</h3>
+          <div class="form-grid" id="stats-grid"></div>
+        </div>
+        <div class="panel">
+          <h3>Guides</h3>
+          <div class="panel-row">
+            <button class="btn btn-ghost" type="button" data-guide="stats">How to connect HH stats</button>
+            <button class="btn btn-ghost" type="button" data-guide="hotkey">Hotkey guide</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page page-panel" id="page-settings" hidden>
+        <h1 class="page-title">Settings</h1>
+        <p class="page-sub">Behavior, hotkey, theme, Chrome session.</p>
+        <div class="panel">
+          <h3>Hotkey</h3>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px">
+            <div class="hotkey-badge" id="hotkey-badge-2" style="margin:0">Ctrl + Alt + Q</div>
+            <span id="hk-status" style="color:var(--text-muted);font-size:13px"></span>
+          </div>
+          <div class="panel-row">
+            <button class="btn btn-primary" type="button" id="btn-hk-assign">Assign hotkey</button>
+            <button class="btn" type="button" id="btn-hk-test">Test hotkey</button>
+            <button class="btn btn-ghost" type="button" id="btn-hk-reset">Reset to Ctrl+Alt+Q</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Behavior</h3>
+          <label class="toggle"><input type="checkbox" id="opt-sound" /> <span>Sound (x3) when a new vacancy is found</span></label>
+          <label class="toggle"><input type="checkbox" id="opt-dnd" /> <span>DND - mute all sounds</span></label>
+          <label class="toggle"><input type="checkbox" id="opt-min" /> <span>Minimize previous window on hotkey</span></label>
+          <label class="toggle"><input type="checkbox" id="opt-autostart" /> <span>Launch at system startup</span></label>
+        </div>
+        <div class="panel">
+          <h3>Appearance</h3>
+          <div class="panel-row" style="align-items:center">
+            <label for="opt-theme" style="color:var(--text-dim)">Theme</label>
+            <select id="opt-theme" class="select"></select>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Log</h3>
+          <div class="log-box" id="log-box"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="statusbar">
+      <div class="statusbar-stats" id="strip-stats"></div>
+      <div class="updated" id="strip-updated">Last Updated: -</div>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -16,5 +16,8 @@
   "cover_letter_via_cursor": true,
   "cursor_api_key": "",
   "cursor_model": "composer-2.5",
-  "cover_letter_timeout_sec": 90
+  "cover_letter_timeout_sec": 90,
+  "ui_theme": "04",
+  "autostart_enabled": false,
+  "ui_zoom": 1.35
 }
