@@ -1,0 +1,34 @@
+# Secrets & local runtime
+data/config.json
+data/queue.json
+data/seen.json
+data/stats.json
+data/radar.log
+data/*.bak
+
+# Chrome profile (cookies / session)
+chrome_profile/
+
+# Python / Node
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+cursor_bridge/node_modules/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.lnk
+desktop.ini
+.idea/
+.vscode/
+
+# Misc
+*.log
+_ui_err.txt
+_ui_out.txt
+
+data/_dump_*.json
+

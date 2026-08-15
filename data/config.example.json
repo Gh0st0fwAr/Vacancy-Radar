@@ -1,0 +1,20 @@
+{
+  "search_interval_min": 15,
+  "stats_interval_min": 30,
+  "score_threshold": 70,
+  "hotkey": "ctrl+alt+q",
+  "sound_enabled": true,
+  "dnd": false,
+  "minimize_previous": false,
+  "chrome_debug_port": 9222,
+  "hh_search_url": "https://hh.ru/search/vacancy?text=Vue+OR+Nuxt&search_field=name&search_field=description&schedule=remote&order_by=publication_time&search_period=1&items_on_page=50",
+  "salary_target": 160000,
+  "salary_floor": 120000,
+  "deep_score": true,
+  "vacancy_settle_sec": 1.1,
+  "deep_score_max": 50,
+  "cover_letter_via_cursor": true,
+  "cursor_api_key": "",
+  "cursor_model": "composer-2.5",
+  "cover_letter_timeout_sec": 90
+}
