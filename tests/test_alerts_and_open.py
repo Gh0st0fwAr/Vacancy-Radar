@@ -48,6 +48,16 @@ class TestSoundAllowed:
         assert not sound_allowed({"sound_enabled": True, "dnd": True})
 
 
+class TestSearchDoneSound:
+    def test_beep_search_done_is_callable(self):
+        from radar import sounds
+
+        with patch.object(sounds.threading, "Thread") as thr:
+            sounds.beep_search_done()
+            thr.assert_called_once()
+            assert thr.call_args.kwargs.get("daemon") is True
+
+
 class TestOpenUrlFast:
     def test_prefers_short_put_encoded(self):
         from radar import chrome_ctl

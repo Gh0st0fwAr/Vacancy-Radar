@@ -52,6 +52,28 @@ def beep_triple() -> None:
     threading.Thread(target=_run, daemon=True).start()
 
 
+def beep_search_done() -> None:
+    """
+    Успешный тик поиска / «Искать сейчас».
+    Две короткие ноты вверх — заметно короче шести писков алерта.
+    """
+    def _run():
+        try:
+            import time
+            import winsound
+
+            winsound.Beep(523, 55)
+            time.sleep(0.02)
+            winsound.Beep(784, 70)
+        except Exception:
+            try:
+                print("\a", flush=True)
+            except Exception:
+                pass
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def beep_six() -> None:
     """Активность работодателя (приглашение / чат / собес)."""
     _beep_loop(6, freq=1200, dur=120, gap=0.06)

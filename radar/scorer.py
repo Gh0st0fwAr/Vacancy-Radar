@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Tuple
 
+from .refusal import text_looks_like_refusal
+
 
 def _text(*parts: str) -> str:
     return " ".join(p or "" for p in parts).lower()
@@ -25,6 +27,10 @@ def score_vacancy(
     blob = _text(title, snippet, schedule, experience, salary_text)
     reasons: List[str] = []
     score = 0
+
+    # Already refused by employer on HH — never queue.
+    if text_looks_like_refusal(title, snippet):
+        return 0, ["HH employer refusal"], False
 
     # Hard filters
     remote_ok = any(

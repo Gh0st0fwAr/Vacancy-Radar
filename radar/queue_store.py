@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from .config import QUEUE_PATH, SEEN_PATH, load_json, save_json
+from .refusal import vacancy_looks_refused
 
 # Не ходим по ним хоткеем.
 HOTKEY_SKIP = frozenset({"banned", "skipped", "applied"})
@@ -36,6 +37,8 @@ def is_hotkey_white(v: "Vacancy") -> bool:
     Серые отклики / синие ответы работодателя / отказы — не берём хоткеем.
     """
     if v.status in HOTKEY_SKIP:
+        return False
+    if vacancy_looks_refused(v):
         return False
     hh = getattr(v, "hh_status", "") or ""
     if hh in {"awaiting", "invitation", "interview", "hired", "chat", "discard", "deleted", "archived"}:
@@ -114,6 +117,27 @@ class QueueStore:
         self.seen = set(load_json(SEEN_PATH, []))
         if self.active_url:
             self.active_url = norm_url(self.active_url)
+        self.purge_refused(persist=True)
+
+    def purge_refused(self, *, persist: bool = True) -> int:
+        """Убрать отказы из очереди; URL остаётся в seen (не вернётся из поиска)."""
+        keep = []
+        removed = 0
+        for v in self.items:
+            if vacancy_looks_refused(v):
+                removed += 1
+                nid = norm_url(v.url)
+                if nid:
+                    self.seen.add(nid)
+                if norm_url(self.active_url) == nid:
+                    self.active_url = ""
+                continue
+            keep.append(v)
+        if removed:
+            self.items = keep
+            if persist:
+                self.save()
+        return removed
 
     def save(self) -> None:
         save_json(
@@ -179,4 +203,5 @@ class QueueStore:
 
     def open_next(self) -> Optional[Vacancy]:
         """Следующая вакансия после указателя (см. pick_next_vacancy)."""
+        self.purge_refused(persist=True)
         return pick_next_vacancy(self.items, self.active_url)

@@ -48,7 +48,7 @@ from radar.hotkeys import HotkeyManager, hotkey_label
 from radar.queue_store import QueueStore
 from radar.search_hh import open_vacancy_and_prepare, search_once, upgrade_cover_letters
 from radar.cover_letter import _api_key, is_stale_template
-from radar.sounds import beep_double, beep_once, beep_six, beep_triple, sound_allowed
+from radar.sounds import beep_double, beep_once, beep_search_done, beep_six, beep_triple, sound_allowed
 from radar.alerts import detect_employer_activity, format_activity_toast
 from radar.negotiations_hh import apply_negotiations, badge_for
 from radar.queue_style import ICON_SIZE, icon_for, is_blue, is_gray_apply, is_white
@@ -621,11 +621,14 @@ class MainWindow(QMainWindow):
         if sound_allowed(self.cfg):
             beep_once()
         if self._busy_open:
-            self.append_log("Хоткей: снимаю залипшую блокировку и иду дальше")
-            self._open_seq += 1
-            self._finish_open()
+            self.append_log("Хоткей: открытие ещё идёт — повтор игнор")
+            return
         self.append_log("Хоткей сработал")
         self._minimize_previous_if_needed()
+        purged = self.store.purge_refused(persist=True)
+        if purged:
+            self.append_log(f"Убрано отказов из очереди: {purged}")
+            self.refresh_queue_list()
         v = self.store.open_next()
         if not v:
             self.append_log("Очередь пуста — сначала «Искать сейчас»")
@@ -847,8 +850,14 @@ class MainWindow(QMainWindow):
             f"{result.get('elapsed_sec', '?')}с"
         )
         self.refresh_queue_list()
+        if sound_allowed(self.cfg):
+            beep_search_done()
+        purged = self.store.purge_refused(persist=True)
+        if purged:
+            self.append_log(f"Убрано отказов из очереди: {purged}")
+            self.refresh_queue_list()
         if added:
-            if self.cfg.get("sound_enabled", True) and not self.cfg.get("dnd"):
+            if sound_allowed(self.cfg):
                 beep_triple()
             if hasattr(self, "tray"):
                 self.tray.showMessage(

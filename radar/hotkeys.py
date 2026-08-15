@@ -133,7 +133,7 @@ class HotkeyManager:
 
         now = time.time()
         # Антидребезг: иначе Ctrl+Alt+Q успевает открыть несколько вкладок подряд.
-        if now - self._last_fire < 1.2:
+        if now - self._last_fire < 1.5:
             return
         self._last_fire = now
         try:

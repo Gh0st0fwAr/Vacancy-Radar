@@ -313,6 +313,7 @@ def apply_negotiations(store: QueueStore, items: List[Dict[str, Any]]) -> Dict[s
         return (-prio, -(v.score or 0), v.found_at or "")
 
     store.items.sort(key=sort_key)
+    store.purge_refused(persist=False)
     store.save()
     return {"added": added, "updated": updated, "removed": removed, "total": len(items)}
 

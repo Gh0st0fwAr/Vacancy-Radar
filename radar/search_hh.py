@@ -11,6 +11,7 @@ from .chrome_ctl import open_url_fast
 from .chrome_lock import chrome_exclusive
 from .cover_letter import make_cover_letter
 from .queue_store import QueueStore, Vacancy, norm_url
+from .refusal import text_looks_like_refusal
 from .scorer import score_vacancy
 from .config import EXCLUDE_FILE, ROUNDS_GLOB, load_config, load_json
 
@@ -185,6 +186,12 @@ def search_once(store: QueueStore) -> Dict:
                         experience=experience,
                         salary_floor=int(cfg.get("salary_floor") or 120000),
                     )
+                    if text_looks_like_refusal(snippet, title) or (
+                        reasons and any("refusal" in r.lower() or "Отказ" in r for r in reasons)
+                    ):
+                        store.mark(link, "banned")
+                        skipped += 1
+                        continue
                     if not ok or sc < threshold:
                         skipped += 1
                         continue
