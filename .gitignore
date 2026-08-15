@@ -3,8 +3,16 @@ data/config.json
 data/queue.json
 data/seen.json
 data/stats.json
+data/negotiations.json
 data/radar.log
 data/*.bak
+_probe_*.py
+_probe_*.txt
+_run_*.py
+_gen_*.py
+_fix_*.py
+_scan_*.py
+_rewrite_*.py
 
 # Chrome profile (cookies / session)
 chrome_profile/

@@ -26,6 +26,23 @@ def norm_url(url: str) -> str:
     return u
 
 
+def _found_at_key(v: "Vacancy") -> str:
+    return getattr(v, "found_at", "") or ""
+
+
+def is_hotkey_white(v: "Vacancy") -> bool:
+    """
+    Белая = ещё не откликался (локально и на HH).
+    Серые отклики / синие ответы работодателя / отказы — не берём хоткеем.
+    """
+    if v.status in HOTKEY_SKIP:
+        return False
+    hh = getattr(v, "hh_status", "") or ""
+    if hh in {"awaiting", "invitation", "interview", "hired", "chat", "discard", "deleted", "archived"}:
+        return False
+    return v.status in ("new", "visited") or not hh
+
+
 @dataclass
 class Vacancy:
     id: str
@@ -42,6 +59,9 @@ class Vacancy:
     letter_source: str = ""  # cursor | local
     description: str = ""
     remote: bool = True
+    # Статус из «Отклики и приглашения» HH (CDP sync).
+    hh_status: str = ""  # invitation | interview | hired | chat | awaiting | discard | …
+    hh_tag: str = ""  # текст тега на HH, напр. «Не просмотрен»
 
     def short_line(self) -> str:
         return f"{self.score}% · {self.title} · {self.company}"
@@ -52,43 +72,23 @@ def pick_next_vacancy(
     active_url: str = "",
 ) -> Optional[Vacancy]:
     """
-    Следующая вакансия для хоткея.
-    1) Если есть status=new — берём первую new ПОСЛЕ active_url (с wrap).
-    2) Иначе — следующая после active среди обходимых (visited и т.п.), с циклом.
-    Не возвращает ту же, что active, если в очереди есть другая доступная.
+    Хоткей: только белые вакансии, от самой свежей к более старым (found_at desc), с wrap.
     """
-    pool = [v for v in items if v.status not in HOTKEY_SKIP]
-    if not pool:
+    whites = [v for v in items if is_hotkey_white(v)]
+    if not whites:
         return None
+    whites.sort(key=_found_at_key, reverse=True)
 
     active = norm_url(active_url) if active_url else ""
-    news = [v for v in pool if v.status == "new"]
-
-    if news:
-        if not active:
-            return news[0]
-        after = False
-        for v in pool:
-            if norm_url(v.url) == active:
-                after = True
-                continue
-            if after and v.status == "new":
-                return v
-        # wrap: new до/включая начало списка (но не сама active, если она уже не new)
-        for v in news:
-            if norm_url(v.url) != active:
-                return v
-        return news[0]
-
-    # Нет new — шаг по пулу после active
     if not active:
-        return pool[0]
-    idx = next((i for i, v in enumerate(pool) if norm_url(v.url) == active), -1)
+        return whites[0]
+
+    idx = next((i for i, v in enumerate(whites) if norm_url(v.url) == active), -1)
     if idx < 0:
-        return pool[0]
-    if len(pool) == 1:
-        return pool[0]
-    return pool[(idx + 1) % len(pool)]
+        return whites[0]
+    if len(whites) == 1:
+        return whites[0]
+    return whites[(idx + 1) % len(whites)]
 
 
 class QueueStore:

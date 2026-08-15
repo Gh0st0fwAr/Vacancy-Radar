@@ -5,11 +5,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 
-# Metrics that mean "employer moved" for the applicant.
 ACTIVITY_FIELDS = (
-    ("invitations", "???????????"),
-    ("interviews", "?????????????"),
-    ("unread_messages", "????????? ? ????"),
+    ("invitations", "Приглашения"),
+    ("interviews", "Собеседования"),
+    ("unread_messages", "Непрочитанные в чате"),
 )
 
 
@@ -23,11 +22,7 @@ def _as_int(v: Any) -> Optional[int]:
 
 
 def detect_employer_activity(prev: Dict, new: Dict) -> List[Dict[str, Any]]:
-    """
-    Compare two stats snapshots.
-    Returns events only when a watched counter *increases* and prev had a real value
-    (avoids false alarm on first successful scrape).
-    """
+    """Events only when a watched counter increases and prev had a real value."""
     prev = prev or {}
     new = new or {}
     if not new.get("ok"):
@@ -54,5 +49,5 @@ def detect_employer_activity(prev: Dict, new: Dict) -> List[Dict[str, Any]]:
 def format_activity_toast(events: List[Dict[str, Any]]) -> str:
     if not events:
         return ""
-    lines = [f"{e['label']}: {e['from']} ? {e['to']}" for e in events]
+    lines = [f"{e['label']}: {e['from']} → {e['to']}" for e in events]
     return "\n".join(lines)

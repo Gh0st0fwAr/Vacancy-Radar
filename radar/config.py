@@ -20,11 +20,12 @@ CONFIG_PATH = DATA / "config.json"
 QUEUE_PATH = DATA / "queue.json"
 STATS_PATH = DATA / "stats.json"
 SEEN_PATH = DATA / "seen.json"
+NEGOTIATIONS_PATH = DATA / "negotiations.json"
 LOG_PATH = DATA / "radar.log"
 
 DEFAULT_CONFIG = {
     "search_interval_min": 15,
-    "stats_interval_min": 30,
+    "stats_interval_min": 15,
     "score_threshold": 70,
     "hotkey": "ctrl+alt+q",
     "sound_enabled": True,

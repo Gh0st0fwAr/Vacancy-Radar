@@ -26,6 +26,8 @@ ACCENT_DIM = "#3d7a70"
 DANGER = "#d47878"
 OK = "#7bc47f"
 WARN = "#e6c35c"
+INVITE = "#7eb6f0"
+INVITE_BG = "#1e3348"
 
 
 THEME_QSS = f"""
@@ -115,11 +117,11 @@ QListWidget {{
 }}
 
 QListWidget::item {{
-    padding: 14px 16px;
-    margin: 4px 2px;
+    padding: 16px 16px 16px 8px;
+    margin: 5px 2px;
     border-radius: 10px;
     border: 1px solid transparent;
-    min-height: 32px;
+    min-height: 48px;
 }}
 
 QListWidget::item:selected {{

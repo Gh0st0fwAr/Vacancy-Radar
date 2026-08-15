@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 from .cdp import CdpError, open_session
 from .chrome_lock import chrome_exclusive
 from .config import STATS_PATH, load_json, save_json
+from .negotiations_hh import scrape_negotiations
 
 # Frontend resume to track (not the welder one)
 RESUME_HINTS = (
@@ -156,7 +157,7 @@ def fetch_stats() -> Dict:
     }
     session = None
     try:
-        with chrome_exclusive(timeout=100):
+        with chrome_exclusive(timeout=160):
             session = open_session("https://hh.ru/applicant/negotiations")
 
             # 1) Negotiations filters
@@ -178,6 +179,15 @@ def fetch_stats() -> Dict:
             inv_tab = _tab(tabs, "приглашение") or _tab(tabs, "приглашения")
             if inv_tab is not None:
                 out["invitations"] = inv_tab
+
+            # 1b) Полный список переговоров по вкладкам (для очереди Радара)
+            try:
+                out["negotiations"] = scrape_negotiations(session)
+            except Exception as e:
+                out["negotiations"] = []
+                out["raw_notes"] = list(out.get("raw_notes") or []) + [
+                    f"negotiations scrape: {e}"
+                ]
 
             # 2) Profile / resumes — views + invites for Frontend CV
             # /applicant/resumes redirects to profile/me on Magritte
@@ -212,8 +222,10 @@ def fetch_stats() -> Dict:
                 out["unread_messages"] = None
 
             out["ok"] = True
+            neg_n = len(out.get("negotiations") or [])
             out["raw_notes"] = [
                 f"negotiations tabs={tabs}",
+                f"negotiations_items={neg_n}",
                 f"resume={resume}",
                 f"href_neg={neg.get('href')}",
                 f"href_prof={prof.get('href')}",
@@ -231,6 +243,7 @@ def fetch_stats() -> Dict:
             except Exception:
                 pass
 
+    negotiations = list(out.pop("negotiations", None) or [])
     merged = _merge(prev, out)
     # If failed entirely, keep previous numbers but surface error
     if not out.get("ok") and prev:
@@ -248,7 +261,10 @@ def fetch_stats() -> Dict:
                 merged[k] = prev.get(k)
         merged["stale"] = True
         merged["raw_notes"] = list(merged.get("raw_notes") or []) + ["Ошибка обновления — показаны прошлые цифры"]
-    save_json(STATS_PATH, merged)
+    # Крупный список переговоров в stats.json не пишем — только в ответ цикла.
+    to_save = {k: v for k, v in merged.items() if k != "negotiations"}
+    save_json(STATS_PATH, to_save)
+    merged["negotiations"] = negotiations
     return merged
 
 

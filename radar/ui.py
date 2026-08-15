@@ -33,7 +33,15 @@ from PySide6.QtWidgets import (
 )
 
 from radar.clipboard_util import set_clipboard
-from radar.config import ASSETS, LOG_PATH, STATS_PATH, load_config, load_json, save_config
+from radar.config import (
+    ASSETS,
+    LOG_PATH,
+    NEGOTIATIONS_PATH,
+    STATS_PATH,
+    load_config,
+    load_json,
+    save_config,
+)
 from radar.chrome_ctl import launch_chrome_for_login, check_connection_fast
 from radar.guides import GUIDE_HOTKEY, GUIDE_STATS
 from radar.hotkeys import HotkeyManager, hotkey_label
@@ -42,10 +50,14 @@ from radar.search_hh import open_vacancy_and_prepare, search_once, upgrade_cover
 from radar.cover_letter import _api_key, is_stale_template
 from radar.sounds import beep_double, beep_once, beep_six, beep_triple, sound_allowed
 from radar.alerts import detect_employer_activity, format_activity_toast
+from radar.negotiations_hh import apply_negotiations, badge_for
+from radar.queue_style import ICON_SIZE, icon_for, is_blue, is_gray_apply, is_white
 from radar.stats_hh import fetch_stats
 from radar.theme import (
     ACCENT,
     DANGER,
+    INVITE,
+    INVITE_BG,
     OK,
     ScaleButton,
     TEXT,
@@ -58,8 +70,14 @@ from radar.theme import (
 
 # Маркер «активный указатель» (хоткей / последняя открытая).
 ACTIVE_ROLE = Qt.UserRole + 1
+HH_HIGHLIGHT_ROLE = Qt.UserRole + 2
 POINTER_GREEN = QColor("#8dff9a")
 SKIP_YELLOW = QColor(WARN)
+INVITE_BLUE = QColor(INVITE)
+INVITE_BG_COLOR = QColor(INVITE_BG)
+WHITE_FG = QColor("#f5f7fa")
+GRAY_APPLY = QColor("#9aa3ad")
+GRAY_APPLY_BG = QColor("#2a3038")
 
 
 class PointerGlowDelegate(QStyledItemDelegate):
@@ -162,7 +180,7 @@ class MainWindow(QMainWindow):
 
     def _rearm_timers(self):
         search_ms = max(1, int(self.cfg.get("search_interval_min") or 15)) * 60 * 1000
-        stats_ms = max(1, int(self.cfg.get("stats_interval_min") or 30)) * 60 * 1000
+        stats_ms = max(1, int(self.cfg.get("stats_interval_min") or 15)) * 60 * 1000
         self.search_timer.start(search_ms)
         # offset stats so it doesn't start in the same second as search
         self.stats_timer.stop()
@@ -189,6 +207,8 @@ class MainWindow(QMainWindow):
         self.list.setTextElideMode(Qt.ElideRight)
         self.list.setWordWrap(True)
         self.list.setMinimumHeight(160)
+        self.list.setIconSize(ICON_SIZE)
+        self.list.setSpacing(6)
         self.list.setItemDelegate(PointerGlowDelegate(self.list))
         self.list.currentRowChanged.connect(self.on_select)
         left_l.addWidget(self.list, stretch=1)
@@ -478,26 +498,47 @@ class MainWindow(QMainWindow):
         for v in self.store.items:
             if v.status == "banned":
                 continue
-            item = QListWidgetItem(f"{v.score}%  {v.title}  ·  {v.company}")
+            badge = badge_for(v)
+            if v.score and int(v.score) > 0:
+                label = f"{badge}{v.score}%  {v.title}  ·  {v.company}"
+            else:
+                label = f"{badge}{v.title}  ·  {v.company}"
+            item = QListWidgetItem(label)
             item.setData(Qt.UserRole, v.url)
             is_active = bool(active and v.url == active)
             item.setData(ACTIVE_ROLE, is_active)
-            if v.status == "new":
-                new_count += 1
-                item.setForeground(QColor(TEXT))
+            blue = is_blue(v)
+            item.setData(HH_HIGHLIGHT_ROLE, blue)
+            ic = icon_for(v)
+            if not ic.isNull():
+                item.setIcon(ic)
+            # Цвета: синий ответ работодателя → серый мой отклик → белый новый → …
+            if blue:
+                item.setBackground(INVITE_BG_COLOR)
+                item.setForeground(INVITE_BLUE)
                 f = item.font()
                 f.setBold(True)
+                f.setPointSize(max(f.pointSize(), 15))
+                item.setFont(f)
+            elif is_gray_apply(v):
+                item.setBackground(GRAY_APPLY_BG)
+                item.setForeground(GRAY_APPLY)
+                f = item.font()
                 f.setPointSize(max(f.pointSize(), 13))
+                item.setFont(f)
+            elif is_white(v) or v.status == "new":
+                new_count += 1
+                item.setForeground(WHITE_FG)
+                f = item.font()
+                f.setBold(True)
+                f.setPointSize(max(f.pointSize(), 14))
                 item.setFont(f)
             elif v.status == "visited":
                 item.setForeground(QColor(TEXT_DIM))
-                item.setText("✓ " + item.text())
-            elif v.status == "applied":
-                item.setForeground(QColor(OK))
-                item.setText("★ " + item.text())
             elif v.status == "skipped":
                 item.setForeground(SKIP_YELLOW)
                 item.setText("⏭ " + item.text())
+            # Зелёный только у активного указателя (поверх остальных цветов текста).
             if is_active:
                 f = item.font()
                 f.setBold(True)
@@ -505,11 +546,7 @@ class MainWindow(QMainWindow):
                 item.setFont(f)
                 item.setForeground(POINTER_GREEN)
                 t = item.text()
-                if t.startswith("✓ "):
-                    t = t[2:]
                 if t.startswith("⏭ "):
-                    t = t[2:]
-                if t.startswith("★ "):
                     t = t[2:]
                 if not t.startswith("→ "):
                     item.setText("→ " + t)
@@ -875,7 +912,7 @@ class MainWindow(QMainWindow):
             fetch_stats,
             self._on_stats,
             self._on_stats_fail,
-            timeout_sec=90,
+            timeout_sec=180,
             on_timeout=self._on_stats_timeout,
         )
 
@@ -927,8 +964,33 @@ class MainWindow(QMainWindow):
             if st.get("stale"):
                 msg += " (частично, старые поля сохранены)"
             self.append_log(msg)
+        self._sync_negotiations_from_stats(st)
         self.refresh_stats_labels(st)
         self._notify_employer_activity(events)
+
+    def _sync_negotiations_from_stats(self, st: dict) -> None:
+        """Apply HH negotiations list into queue (with disk fallback)."""
+        neg = st.get("negotiations") if isinstance(st, dict) else None
+        if not isinstance(neg, list) or not neg:
+            cached = load_json(NEGOTIATIONS_PATH, {})
+            neg = cached.get("items") if isinstance(cached, dict) else None
+            if isinstance(neg, list) and neg:
+                self.append_log(
+                    f"Отклики HH: берём кэш ({len(neg)} шт.) — в ответе статистики списка не было"
+                )
+        if not isinstance(neg, list) or not neg:
+            self.append_log("Отклики HH: список пуст — очередь не менялась")
+            return
+        try:
+            sync = apply_negotiations(self.store, neg)
+            self.refresh_queue_list()
+            self.append_log(
+                "Отклики HH → очередь: "
+                f"+{sync.get('added', 0)} обновлено {sync.get('updated', 0)} "
+                f"снято {sync.get('removed', 0)} (всего на HH: {sync.get('total', 0)})"
+            )
+        except Exception as e:
+            self.append_log(f"Синхронизация откликов: {e}")
 
     def refresh_stats_labels(self, st=None):
         st = st or load_json(STATS_PATH, {})
@@ -991,16 +1053,20 @@ class MainWindow(QMainWindow):
     def _run_bg(self, fn, on_ok, on_fail=None, timeout_sec=None, on_timeout=None):
         bridge = BgBridge()
         self._bridges.append(bridge)
-        done = {"flag": False}
+        done = {"flag": False, "timed_out": False}
 
         def finish_ok(result):
-            if done["flag"]:
+            # Если сработал UI-таймаут, всё равно применяем опоздавший результат
+            # (иначе статистика/отклики «успешны», а очередь не обновляется).
+            if done["flag"] and not done.get("timed_out"):
                 return
             done["flag"] = True
+            if done.get("timed_out"):
+                self.append_log("Фоновая задача: опоздавший ответ — применяю результат")
             on_ok(result)
 
         def finish_err(err):
-            if done["flag"]:
+            if done["flag"] and not done.get("timed_out"):
                 return
             done["flag"] = True
             if on_fail:
@@ -1022,6 +1088,7 @@ class MainWindow(QMainWindow):
         if timeout_sec and on_timeout:
             def _to():
                 if not done["flag"]:
+                    done["timed_out"] = True
                     done["flag"] = True
                     on_timeout()
 

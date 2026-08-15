@@ -1,6 +1,6 @@
 {
   "search_interval_min": 15,
-  "stats_interval_min": 30,
+  "stats_interval_min": 15,
   "score_threshold": 70,
   "hotkey": "ctrl+alt+q",
   "sound_enabled": true,

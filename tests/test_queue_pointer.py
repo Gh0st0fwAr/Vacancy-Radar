@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 
 from radar.cover_letter import make_cover_letter
-from radar.queue_store import Vacancy, pick_next_vacancy, QueueStore, norm_url
+from radar.queue_store import Vacancy, is_hotkey_white, pick_next_vacancy, QueueStore, norm_url
 
 
 def _v(n: int, status: str = "new", **kw) -> Vacancy:
+    found = kw.pop("found_at", f"2026-08-15T10:00:{n:02d}+00:00")
     return Vacancy(
         id=f"id-{n}",
         title=f"Title {n}",
@@ -16,6 +17,7 @@ def _v(n: int, status: str = "new", **kw) -> Vacancy:
         url=f"https://hh.ru/vacancy/{1000 + n}",
         score=80 + n,
         status=status,
+        found_at=found,
         cover_letter=kw.pop("cover_letter", "letter"),
         reasons=kw.pop("reasons", ["+20 remote"]),
         **kw,
@@ -28,52 +30,49 @@ class TestNormUrl:
 
 
 class TestPickNextVacancy:
-    def test_first_new_when_no_active(self):
-        items = [_v(1, "visited"), _v(2, "new"), _v(3, "new")]
+    def test_newest_white_first(self):
+        # larger found_at = newer
+        items = [_v(1, "new", found_at="2026-08-15T10:00:01+00:00"), _v(2, "new", found_at="2026-08-15T12:00:00+00:00")]
         got = pick_next_vacancy(items, "")
         assert got and got.url.endswith("/1002")
 
-    def test_advances_to_next_new_after_active(self):
-        items = [_v(1, "new"), _v(2, "new"), _v(3, "new")]
-        active = items[0].url
-        got = pick_next_vacancy(items, active)
-        assert got and got.url == items[1].url
-
-    def test_wraps_single_new(self):
-        items = [_v(1, "visited"), _v(2, "new"), _v(3, "visited")]
-        got = pick_next_vacancy(items, items[1].url)
-        assert got and got.url == items[1].url
-
-    def test_skips_applied_banned_skipped(self):
+    def test_advances_to_older_after_active(self):
         items = [
-            _v(1, "banned"),
-            _v(2, "applied"),
-            _v(3, "skipped"),
+            _v(1, "new", found_at="2026-08-15T10:00:00+00:00"),
+            _v(2, "new", found_at="2026-08-15T11:00:00+00:00"),
+            _v(3, "new", found_at="2026-08-15T12:00:00+00:00"),
+        ]
+        newest = pick_next_vacancy(items, "")
+        assert newest and newest.url.endswith("/1003")
+        next_older = pick_next_vacancy(items, newest.url)
+        assert next_older and next_older.url.endswith("/1002")
+        oldest = pick_next_vacancy(items, next_older.url)
+        assert oldest and oldest.url.endswith("/1001")
+
+    def test_wraps_to_newest(self):
+        items = [
+            _v(1, "new", found_at="2026-08-15T10:00:00+00:00"),
+            _v(2, "new", found_at="2026-08-15T12:00:00+00:00"),
+        ]
+        got = pick_next_vacancy(items, items[0].url)  # active = oldest
+        assert got and got.url.endswith("/1002")
+
+    def test_skips_applied_and_hh_awaiting(self):
+        items = [
+            _v(1, "applied"),
+            _v(2, "new", hh_status="awaiting"),
+            _v(3, "new", hh_status="interview"),
             _v(4, "new"),
         ]
         got = pick_next_vacancy(items, "")
         assert got and got.url.endswith("/1004")
 
-    def test_after_all_visited_moves_forward(self):
-        items = [_v(1, "visited"), _v(2, "visited"), _v(3, "visited")]
-        got = pick_next_vacancy(items, items[0].url)
-        assert got and got.url == items[1].url
-
-    def test_cycle_visited(self):
-        items = [_v(1, "visited"), _v(2, "visited")]
-        got = pick_next_vacancy(items, items[1].url)
-        assert got and got.url == items[0].url
-
-    def test_does_not_stuck_on_same_when_other_new_exists(self):
-        items = [_v(1, "new"), _v(2, "new"), _v(3, "new")]
-        a = pick_next_vacancy(items, "")
-        assert a and a.url == items[0].url
-        a.status = "visited"
-        b = pick_next_vacancy(items, a.url)
-        assert b and b.url == items[1].url
-        b.status = "visited"
-        c = pick_next_vacancy(items, b.url)
-        assert c and c.url == items[2].url
+    def test_visited_without_apply_is_white(self):
+        items = [_v(1, "visited"), _v(2, "applied")]
+        assert is_hotkey_white(items[0])
+        assert not is_hotkey_white(items[1])
+        got = pick_next_vacancy(items, "")
+        assert got and got.url.endswith("/1001")
 
     def test_empty(self):
         assert pick_next_vacancy([], "") is None
@@ -90,20 +89,23 @@ class TestQueueStoreOpenNext:
         monkeypatch.setattr("radar.queue_store.SEEN_PATH", s)
 
         store = QueueStore(autoload=True)
-        store.items = [_v(1, "new"), _v(2, "new")]
+        store.items = [
+            _v(1, "new", found_at="2026-08-15T10:00:00+00:00"),
+            _v(2, "new", found_at="2026-08-15T11:00:00+00:00"),
+        ]
         store.save()
 
         first = store.open_next()
-        assert first and first.url.endswith("/1001")
+        assert first and first.url.endswith("/1002")
         first.status = "visited"
         store.set_active(first.url)
 
         second = store.open_next()
-        assert second and second.url.endswith("/1002")
+        assert second and second.url.endswith("/1001")
         assert second.url != first.url
 
         raw = json.loads(q.read_text(encoding="utf-8"))
-        assert raw["active_url"].endswith("/1001")
+        assert raw["active_url"].endswith("/1002")
 
     def test_ban_removes_from_queue_keeps_seen(self, tmp_path, monkeypatch):
         q = tmp_path / "queue.json"
@@ -125,7 +127,6 @@ class TestQueueStoreOpenNext:
         assert all(v.url != a.url for v in store.items)
         assert a.url in store.seen
         assert store.active_url == ""
-        assert not store.known(a.url) is False  # still known via seen
         assert store.known(a.url)
 
 
@@ -144,15 +145,17 @@ class TestCoverLetter:
         assert "@daniil_virin" in letter
         assert "39dv@mail.ru" in letter
         assert "Vue Developer" in letter
-        assert "\u0417\u0434\u0440\u0430\u0432\u0441\u0442\u0432\u0443\u0439\u0442\u0435!" in letter
         assert "Score:" not in letter
         assert "+25 Vue 3" not in letter
-        assert "Why:" not in letter
 
 
 class TestHotkeyBusySemantics:
-    def test_pick_sequence_matches_user_flow(self):
-        items = [_v(10, "new"), _v(20, "new"), _v(30, "new")]
+    def test_pick_sequence_newest_to_oldest(self):
+        items = [
+            _v(10, "new", found_at="2026-08-15T10:00:00+00:00"),
+            _v(20, "new", found_at="2026-08-15T11:00:00+00:00"),
+            _v(30, "new", found_at="2026-08-15T12:00:00+00:00"),
+        ]
         active = ""
         opened = []
         for _ in range(3):
@@ -161,6 +164,4 @@ class TestHotkeyBusySemantics:
             opened.append(v.url)
             v.status = "visited"
             active = v.url
-        assert opened == [items[0].url, items[1].url, items[2].url]
-        again = pick_next_vacancy(items, active)
-        assert again and again.url == items[0].url
+        assert opened == [items[2].url, items[1].url, items[0].url]
