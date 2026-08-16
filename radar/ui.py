@@ -507,6 +507,12 @@ class MainWindow(QMainWindow):
             return False
         if is_stale_template(text):
             return False
+        # On Cursor branch: only Cursor-generated letters count as ready.
+        want_cursor = bool(self.cfg.get("cover_letter_via_cursor", True)) and not bool(
+            self.cfg.get("python_only", False)
+        )
+        if want_cursor and (v.letter_source or "") != "cursor":
+            return False
         return True
 
     def _open_vacancy(self, v, *, raise_radar: bool = True):
