@@ -51,14 +51,14 @@ DEFAULT_CONFIG = {
     "vacancy_settle_sec": 1.1,
     "deep_score_max": 50,
     # Письма: на ветке pyrhon-only по умолчанию только локальный Python-шаблон.
-    "cover_letter_via_cursor": False,
+    "cover_letter_via_cursor": True,
     "cursor_api_key": "",
     "cursor_model": "composer-2.5",
     "cover_letter_timeout_sec": 90,
     # Scoring: "cursor" (SDK) or "rules" (local Python).
     # python_only=true принудительно rules + локальные письма (без Cursor SDK).
-    "scoring_mode": "rules",
-    "python_only": True,
+    "scoring_mode": "cursor",
+    "python_only": False,
     "cursor_score_timeout_sec": 120,
     # UI: 04 = hybrid default (see references/04_*.png)
     "ui_theme": "04",
