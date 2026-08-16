@@ -28,7 +28,7 @@ function buildPrompt(p) {
   const company = (p.company || "").trim();
   const salary = (p.salary || "").trim();
   const reasons = Array.isArray(p.reasons) ? p.reasons.join("; ") : "";
-  const description = String(p.description || "").slice(0, 7000);
+  const description = String(p.description || "").slice(0, 12000);
 
   return `Ты пишешь сопроводительное письмо для отклика на вакансию.
 Кандидат: Даниил Вирин, Middle frontend (Vue), 6+ лет коммерции.

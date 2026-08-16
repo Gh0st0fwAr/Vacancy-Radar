@@ -249,16 +249,26 @@ def search_once(store: QueueStore) -> Dict:
                         skipped += 1
                         continue
 
-                    # Быстро: уникальное локальное письмо под текст.
-                    # Cursor догоняет в фоне (см. upgrade_cover_letters), иначе поиск встанет на минуты.
-                    letter, letter_src = make_cover_letter(
-                        title,
-                        company=company,
-                        description=snippet,
-                        salary=salary,
-                        reasons=reasons,
-                        force_local=True,
+                    # Cursor branch: do NOT insert universal local template.
+                    # Store full vacancy text; letter comes from Cursor upgrade (unique per vacancy).
+                    want_cursor_letter = bool(cfg.get("cover_letter_via_cursor", True)) and not bool(
+                        cfg.get("python_only", False)
                     )
+                    from .cover_letter import _api_key as _letter_key
+
+                    has_letter_key = bool(_letter_key(cfg))
+                    full_text = (snippet or "")[:12000]
+                    if want_cursor_letter and has_letter_key:
+                        letter, letter_src = "", "pending"
+                    else:
+                        letter, letter_src = make_cover_letter(
+                            title,
+                            company=company,
+                            description=full_text,
+                            salary=salary,
+                            reasons=reasons,
+                            force_local=True,
+                        )
                     v = Vacancy(
                         id=link,
                         title=title,
@@ -269,7 +279,7 @@ def search_once(store: QueueStore) -> Dict:
                         salary=salary,
                         cover_letter=letter,
                         letter_source=letter_src,
-                        description=(snippet or "")[:8000],
+                        description=full_text,
                         status="new",
                     )
                     if store.add(v):
@@ -315,7 +325,7 @@ def search_once(store: QueueStore) -> Dict:
 
 
 def upgrade_cover_letters(store: QueueStore, only_urls: Optional[set] = None) -> int:
-    """Пересобрать письма через Cursor (или локально для stale-шаблонов)."""
+    """Generate unique Cursor cover letters from full vacancy description."""
     from .cover_letter import _api_key, is_stale_template
 
     cfg = load_config()
@@ -327,12 +337,15 @@ def upgrade_cover_letters(store: QueueStore, only_urls: Optional[set] = None) ->
     for v in list(store.items):
         if only_urls is not None and v.url not in only_urls:
             continue
+        src = (v.letter_source or "").strip().lower()
         stale = is_stale_template(v.cover_letter or "")
         empty = not (v.cover_letter or "").strip()
-        need_cursor = want_cursor and has_key and v.letter_source != "cursor"
-        if not (empty or stale or need_cursor):
+        pending = src in ("", "pending", "local")
+        need_cursor = want_cursor and has_key and src != "cursor"
+        if not (empty or stale or pending or need_cursor):
             continue
-        letter, src = make_cover_letter(
+        # Always prefer Cursor when enabled+keyed; never keep universal local as final.
+        letter, new_src = make_cover_letter(
             v.title,
             company=v.company,
             description=v.description or "",
@@ -340,9 +353,15 @@ def upgrade_cover_letters(store: QueueStore, only_urls: Optional[set] = None) ->
             reasons=v.reasons,
             force_local=not (want_cursor and has_key),
         )
-        if letter and (letter != v.cover_letter or src != v.letter_source):
+        if want_cursor and has_key and new_src != "cursor":
+            # Failed Cursor — keep pending, do not stamp local universal as done.
+            if empty or src == "pending":
+                v.letter_source = "pending"
+                store.save()
+            continue
+        if letter and (letter != v.cover_letter or new_src != v.letter_source):
             v.cover_letter = letter
-            v.letter_source = src
+            v.letter_source = new_src
             upgraded += 1
             store.save()
     return upgraded
@@ -382,14 +401,38 @@ def open_vacancy_and_prepare(v: Vacancy) -> Dict:
     else:
         fast_mode = True
 
-    # 2) Буфер после открытия (если письмо уже есть).
+    # 2) Ensure Cursor letter from full text before clipboard (no universal local).
+    cfg = load_config()
+    want_cursor = bool(cfg.get("cover_letter_via_cursor", True)) and not bool(
+        cfg.get("python_only", False)
+    )
+    from .cover_letter import _api_key, make_cover_letter
+
+    if want_cursor and _api_key(cfg) and (v.letter_source or "") != "cursor":
+        letter, src = make_cover_letter(
+            v.title,
+            company=v.company,
+            description=v.description or "",
+            salary=v.salary,
+            reasons=v.reasons,
+            force_local=False,
+        )
+        if letter and src == "cursor":
+            v.cover_letter = letter
+            v.letter_source = "cursor"
+
     clip_ok = False
-    if (v.cover_letter or "").strip():
+    if (v.cover_letter or "").strip() and (v.letter_source or "") == "cursor":
+        clip_ok = set_clipboard(v.cover_letter or "")
+    elif (v.cover_letter or "").strip() and not want_cursor:
         clip_ok = set_clipboard(v.cover_letter or "")
 
     who = f"«{v.title}» — " if v.title else ""
+    pending = want_cursor and (v.letter_source or "") != "cursor"
     if clip_ok:
-        msg = f"{who}вкладка открыта, письмо в буфере (сам нажми «Откликнуться» → Ctrl+V)."
+        msg = f"{who}вкладка открыта, письмо Cursor в буфере (сам нажми «Откликнуться» → Ctrl+V)."
+    elif pending:
+        msg = f"{who}вкладка открыта. Письмо Cursor ещё не готово — дождитесь генерации."
     elif (v.cover_letter or "").strip():
         msg = f"{who}вкладка открыта. Скопируйте письмо из Radar."
     else:
@@ -403,7 +446,7 @@ def open_vacancy_and_prepare(v: Vacancy) -> Dict:
         "pasted": False,
         "clipboard": clip_ok,
         "fast": fast_mode,
-        "letter_pending": not bool((v.cover_letter or "").strip()),
+        "letter_pending": pending or not bool((v.cover_letter or "").strip()),
         "message": msg,
     }
 
