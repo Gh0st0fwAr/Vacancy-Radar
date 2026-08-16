@@ -94,6 +94,7 @@ def score_for_search(
         experience=experience,
         salary_floor=floor,
         gate_threshold=threshold,
+        profile=cfg,
     )
     elapsed = int((time.perf_counter() - t0) * 1000)
     meta = {

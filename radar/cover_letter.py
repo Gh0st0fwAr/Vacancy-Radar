@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Сопроводительные письма: Cursor SDK (основной путь) + локальная адаптация."""
+"""Cover letters: local profile template (python-only)."""
 from __future__ import annotations
 
 import json
@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import tempfile
+import time as _time
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from .config import ROOT, load_config
@@ -15,17 +16,28 @@ from .metrics_log import append_event
 BRIDGE = ROOT / "cursor_bridge" / "generate_letter.mjs"
 RULES_CWD = ROOT.parent
 
-HEADER = (
-    "Портфолио: https://gh0st0fwar.github.io/\n"
-    "Telegram: @daniil_virin\n"
-    "Email: 39dv@mail.ru\n"
+STALE_MARKERS = (
+    "Middle frontend",
+    "enterprise NMS",
+    "gh0st0fwar.github.io",
+    "@daniil_virin",
 )
 
-# Маркер старого тупого шаблона — чтобы пересобрать уже лежащие в очереди.
-STALE_MARKERS = (
-    "Основная специализация — сложные SPA и data-heavy интерфейсы: дашборды, "
-    "конфигурационные таблицы, карты, real-time телеметрия, генераторы форм.",
-)
+
+def _header(cfg: dict) -> str:
+    lines = []
+    port = (cfg.get("portfolio_url") or "").strip()
+    if port:
+        lines.append("\u041f\u043e\u0440\u0442\u0444\u043e\u043b\u0438\u043e: " + port)
+    tg = (cfg.get("telegram") or "").strip()
+    if tg:
+        if not tg.startswith("@"):
+            tg = "@" + tg
+        lines.append("Telegram: " + tg)
+    email = (cfg.get("email") or "").strip()
+    if email:
+        lines.append("Email: " + email)
+    return "\n".join(lines)
 
 
 def make_cover_letter(
@@ -37,13 +49,7 @@ def make_cover_letter(
     reasons: Optional[Sequence[str]] = None,
     force_local: bool = False,
 ) -> Tuple[str, str]:
-    """
-    Returns (letter, source).
-    source: "cursor" | "local"
-    """
-    import time as _time
-
-    title = (vacancy_title or "Frontend").strip()
+    title = (vacancy_title or "\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u044f").strip()
     company = (company or "").strip()
     description = (description or "").strip()
     salary = (salary or "").strip()
@@ -52,7 +58,7 @@ def make_cover_letter(
     cfg = load_config()
     if bool(cfg.get("python_only", False)):
         force_local = True
-    use_cursor = bool(cfg.get("cover_letter_via_cursor", True)) and not force_local
+    use_cursor = bool(cfg.get("cover_letter_via_cursor", False)) and not force_local
     t0 = _time.perf_counter()
     if use_cursor:
         letter, meta = _via_cursor(
@@ -82,6 +88,7 @@ def make_cover_letter(
         description=description,
         salary=salary,
         reasons=reasons_list,
+        cfg=cfg,
     )
     elapsed = int((_time.perf_counter() - t0) * 1000)
     append_event(
@@ -118,14 +125,12 @@ def _via_cursor(
     reasons: List[str],
     cfg: dict,
 ) -> Tuple[Optional[str], dict]:
-    """Returns (letter_or_None, meta). meta may include usage/elapsed_ms."""
     meta: dict = {}
     if not BRIDGE.exists():
         return None, meta
     key = _api_key(cfg)
     if not key:
         return None, meta
-
     payload = {
         "title": title,
         "company": company,
@@ -138,7 +143,6 @@ def _via_cursor(
         "returnMeta": True,
     }
     timeout = int(cfg.get("cover_letter_timeout_sec") or 90)
-
     try:
         with tempfile.NamedTemporaryFile(
             "w", encoding="utf-8", suffix=".json", delete=False
@@ -160,11 +164,8 @@ def _via_cursor(
                 os.unlink(tmp)
             except OSError:
                 pass
-
         if proc.returncode != 0:
-            err = (proc.stderr or proc.stdout or "").strip().splitlines()
-            raise RuntimeError(err[0] if err else f"cursor bridge exit {proc.returncode}")
-
+            return None, meta
         raw = (proc.stdout or "").strip()
         letter = ""
         if raw.startswith("{"):
@@ -174,8 +175,8 @@ def _via_cursor(
             meta["elapsed_ms"] = data.get("elapsed_ms")
         else:
             letter = raw
-        if len(letter) < 200 or "Портфолио:" not in letter:
-            raise RuntimeError("Cursor returned empty/broken letter")
+        if len(letter) < 120:
+            return None, meta
         return _sanitize(letter), meta
     except Exception:
         return None, meta
@@ -183,173 +184,17 @@ def _via_cursor(
 
 def _sanitize(letter: str) -> str:
     text = letter.strip()
-    # Убрать markdown-ограждения и случайную мету
     text = re.sub(r"^```[\w]*\n?", "", text)
     text = re.sub(r"\n?```$", "", text)
     lines = []
     for line in text.splitlines():
         low = line.lower().strip()
-        if low.startswith("ссылка на вакансию"):
+        if low.startswith("\u0441\u0441\u044b\u043b\u043a\u0430 \u043d\u0430 \u0432\u0430\u043a\u0430\u043d\u0441\u0438\u044e"):
             continue
         if re.match(r"^https?://.*(hh\.ru|getmatch|habr|remote-job)", low):
             continue
         lines.append(line)
     return "\n".join(lines).strip()
-
-
-# ---- локальная адаптация (не один шаблон: набор блоков под темы вакансии) ----
-
-
-def _norm(s: str) -> str:
-    return (s or "").lower().replace("ё", "е")
-
-
-def _detect_themes(title: str, description: str, reasons: Sequence[str]) -> List[str]:
-    blob = _norm(f"{title}\n{description}\n{' '.join(reasons)}")
-    themes: List[str] = []
-
-    def has(*needles: str) -> bool:
-        return any(n in blob for n in needles)
-
-    if has("nuxt"):
-        themes.append("nuxt")
-    if has("vue 2", "vue2", "vuex"):
-        themes.append("vue2")
-    if has("vue 3", "vue3", "composition api", "script setup"):
-        themes.append("vue3")
-    if has("pinia"):
-        themes.append("pinia")
-    if has("typescript", " type script", " ts ", "на ts"):
-        themes.append("typescript")
-    if has("карт", "leaflet", "mapbox", "яндex.карт", "yandex map", "gis"):
-        themes.append("maps")
-    if has("дашборд", "dashboard", "график", "chart", "телеметр", "монитор"):
-        themes.append("dashboard")
-    if has("таблиц", "ag-grid", "agrid", "data-grid", "виртуализ"):
-        themes.append("tables")
-    if has("форм", "form generator", "динамическ"):
-        themes.append("forms")
-    if has("websocket", "web socket", "real-time", "realtime", "сокет"):
-        themes.append("realtime")
-    if has("fullstack", "full stack", "full-stack", "бэкенд", "backend", "node.js", "nestjs"):
-        themes.append("fullstack")
-    if has("ux/ui", "ui/ux", "дизайн-систем", "figma", "pixel"):
-        themes.append("ux")
-    if has("легаси", "legacy", "рефактор", "миграц"):
-        themes.append("legacy")
-    if has("scss", "sass", "css modules", "tailwind"):
-        themes.append("styles")
-    if has("spa") or not themes:
-        themes.append("spa")
-
-    # уникальный порядок, сохраняя приоритет
-    seen = set()
-    out = []
-    for t in themes:
-        if t not in seen:
-            seen.add(t)
-            out.append(t)
-    return out[:6]
-
-
-_BLOCKS: Dict[str, str] = {
-    "vue3": (
-        "Уверенно работаю с Vue 3 (Composition API, script setup), TypeScript, "
-        "слоем состояния и роутингом — как раз тот контур, который обычно нужен "
-        "в продуктовых SPA."
-    ),
-    "vue2": (
-        "В проде глубоко знаю Vue 2 и Vuex: поддержка легаси, аккуратные доработки "
-        "и поэтапный перевод модулей на более современный стек без «большого взрыва»."
-    ),
-    "nuxt": (
-        "С Nuxt работаю на уровне Junior / активного роста (SSR, Nitro API, "
-        "file-based routing) — без завышения, готов быстро добирать практику в бою."
-    ),
-    "pinia": (
-        "Для состояния привычен Pinia: понятные сторы, предсказуемые обновления UI "
-        "и нормальная декомпозиция сложных экранов."
-    ),
-    "typescript": (
-        "TypeScript для меня рабочий язык фронта: типы на границах API, меньше "
-        "сюрпризов в больших формах и таблицах."
-    ),
-    "maps": (
-        "Есть коммерческий опыт с картографией и геоданными в UI: тяжёлые карты, "
-        "оверлеи, связка карта ↔ таблицы/фильтры без деградации отзывчивости."
-    ),
-    "dashboard": (
-        "Сильная сторона — data-heavy интерфейсы: дашборды, мониторинг, телеметрия, "
-        "графики и экраны, где много живых данных и важна стабильность в проде."
-    ),
-    "tables": (
-        "Уверенно делаю сложные таблицы и конфигурационные гриды: фильтры, "
-        "иерархия, виртуализация, аккуратная работа с большими объёмами строк."
-    ),
-    "forms": (
-        "Делал генераторы и сложные формы по схемам API: валидация, динамические "
-        "поля, предсказуемое поведение на длинных пользовательских сценариях."
-    ),
-    "realtime": (
-        "Понимаю real-time контуры на фронте: обновления по событиям, аккуратный "
-        "рендер и состояние, чтобы экран не «трясся» на частых апдейтах."
-    ),
-    "fullstack": (
-        "По fullstack честно: мой сильный край — frontend на Vue. Backend/Node "
-        "готов добирать по задаче, не притворяясь senior full-stack."
-    ),
-    "ux": (
-        "Близки задачи на стыке UI и инженерии: аккуратная вёрстка, понятные "
-        "состояния интерфейса, работа с макетами без потери технической глубины."
-    ),
-    "legacy": (
-        "Умею жить в легаси: точечный рефакторинг, снижение риска регрессий, "
-        "перенос кусков на Vue 3 + TS по мере ценности для продукта."
-    ),
-    "styles": (
-        "Вёрстку держу в боевом виде: SCSS/современный CSS, адаптив, аккуратные "
-        "компоненты без расползания стилей."
-    ),
-    "spa": (
-        "Основной профиль — сложные SPA: архитектура экранов, REST-интеграции, "
-        "оптимизация тяжёлых страниц (lazy-load, code splitting, виртуализация)."
-    ),
-}
-
-
-def _nms_anchor(themes: Sequence[str]) -> str:
-    bits = []
-    if "maps" in themes:
-        bits.append("карты")
-    if "dashboard" in themes:
-        bits.append("дашборды/телеметрия")
-    if "tables" in themes:
-        bits.append("тяжёлые таблицы")
-    if "forms" in themes:
-        bits.append("генераторы форм")
-    if not bits:
-        bits = ["data-heavy экраны", "интеграции с API"]
-    focus = ", ".join(bits[:3])
-    return (
-        "В коммерции проектировал и развивал enterprise NMS для телеком-сетей "
-        f"(~90+ компонентов): как раз профиль, где важны {focus}, стабильный "
-        "продакшен и умение доводить фичи до конца."
-    )
-
-
-def _fit_sentence(title: str, company: str, themes: Sequence[str]) -> str:
-    company_bit = f" в {company}" if company else ""
-    if "nuxt" in themes:
-        angle = "интересны SSR/Nuxt-задачи рядом с сильным Vue-ядром"
-    elif "fullstack" in themes:
-        angle = "готов закрывать frontend-контур и честно усиливать смежные зоны"
-    elif "ux" in themes:
-        angle = "близка инженерия интерфейсов с вниманием к UX"
-    elif "maps" in themes or "dashboard" in themes:
-        angle = "хорошо ложится на мой опыт data-heavy / мониторинговых UI"
-    else:
-        angle = "по стеку и уровню задач выглядит близко к моему коммерческому опыту"
-    return f"Вакансия «{title}»{company_bit} {angle}."
 
 
 def _via_local(
@@ -359,52 +204,45 @@ def _via_local(
     description: str,
     salary: str,
     reasons: Sequence[str],
+    cfg: dict,
 ) -> str:
-    themes = _detect_themes(title, description, reasons)
-    # 3 тематических блока + якорь NMS + fit — комбинация зависит от вакансии
-    body_blocks = []
-    for key in themes:
-        if key in _BLOCKS and key not in ("spa",):
-            body_blocks.append(_BLOCKS[key])
-        if len(body_blocks) >= 3:
-            break
-    if len(body_blocks) < 2:
-        body_blocks.append(_BLOCKS["spa"])
-    if "nuxt" in themes and _BLOCKS["nuxt"] not in body_blocks:
-        body_blocks.append(_BLOCKS["nuxt"])
+    role = (cfg.get("candidate_role") or "\u0421\u043f\u0435\u0446\u0438\u0430\u043b\u0438\u0441\u0442").strip()
+    years = str(cfg.get("experience_years_label") or "1").strip()
+    pitch = (cfg.get("candidate_pitch") or "").strip()
+    fmt = (cfg.get("work_format_phrase") or "\u0418\u0449\u0443 \u0443\u0434\u0430\u043b\u0451\u043d\u043d\u0443\u044e \u0440\u0430\u0431\u043e\u0442\u0443").strip()
+    target = int(cfg.get("salary_target") or 100000)
+    company_bit = (" \u0432 " + company) if company else ""
+    header = _header(cfg)
 
-    intro = (
-        f"Я Middle frontend-разработчик с 6+ годами коммерческого опыта на Vue. "
-        f"{_fit_sentence(title, company, themes)}"
+    parts = []
+    if header:
+        parts.extend([header, ""])
+    parts.extend(
+        [
+            "\u0417\u0434\u0440\u0430\u0432\u0441\u0442\u0432\u0443\u0439\u0442\u0435!",
+            "\u0417\u0430\u0438\u043d\u0442\u0435\u0440\u0435\u0441\u043e\u0432\u0430\u043b\u0430 \u0432\u0430\u0448\u0430 \u0432\u0430\u043a\u0430\u043d\u0441\u0438\u044f " + title + ".",
+            "",
+            "\u042f \u2014 " + role + ", \u043e\u043f\u044b\u0442 ~" + years + " \u0433. "
+            "\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u044f \u00ab" + title + "\u00bb" + company_bit + " "
+            "\u043f\u043e \u043f\u0440\u043e\u0444\u0438\u043b\u044e \u0431\u043b\u0438\u0437\u043a\u0430 \u043a \u043c\u043e\u0435\u043c\u0443 \u043e\u043f\u044b\u0442\u0443.",
+            "",
+        ]
     )
-
-    parts = [
-        HEADER.rstrip(),
-        "",
-        "Здравствуйте!",
-        f"Заинтересовала ваша вакансия {title}.",
-        "",
-        intro,
-        "",
-        " ".join(body_blocks[:3]),
-        "",
-        _nms_anchor(themes),
-        "",
-    ]
-    if "nuxt" not in themes:
-        parts.append(_BLOCKS["nuxt"])
-        parts.append("")
-
+    if pitch:
+        parts.extend([pitch, ""])
     salary_note = ""
     if salary:
-        salary_note = f" В карточке указано: {salary}."
+        salary_note = " \u0412 \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u043e: " + salary + "."
     parts.append(
-        "Ищу удалённую работу. Ориентир по компенсации ~160k на руки, "
-        f"до ~200k обсуждаемо.{salary_note}"
+        fmt + ". \u041e\u0440\u0438\u0435\u043d\u0442\u0438\u0440 \u043f\u043e \u043a\u043e\u043c\u043f\u0435\u043d\u0441\u0430\u0446\u0438\u0438 ~"
+        + str(target // 1000)
+        + "k \u043d\u0430 \u0440\u0443\u043a\u0438."
+        + salary_note
     )
-    parts.append("")
-    parts.append(
-        "Буду рад кратко созвониться или ответить на вопросы по опыту и проектам. "
-        "Актуальные демо и код — в портфолио по ссылке выше."
+    parts.extend(
+        [
+            "",
+            "\u0413\u043e\u0442\u043e\u0432 \u043e\u0442\u0432\u0435\u0442\u0438\u0442\u044c \u043d\u0430 \u0432\u043e\u043f\u0440\u043e\u0441\u044b \u043f\u043e \u043e\u043f\u044b\u0442\u0443 \u0438 \u0441\u043e\u0437\u0432\u043e\u043d\u0438\u0442\u044c\u0441\u044f.",
+        ]
     )
     return _sanitize("\n".join(parts))

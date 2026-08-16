@@ -3,9 +3,22 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 from radar.cursor_score import score_for_search, scoring_mode
+
+
+def _support_cfg(**extra):
+    cfg = json.loads(
+        (Path(__file__).resolve().parents[1] / "data" / "config.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    cfg["cursor_api_key"] = ""
+    cfg["scoring_mode"] = "rules"
+    cfg.update(extra)
+    return cfg
 
 
 class TestScoringMode:
@@ -20,15 +33,10 @@ class TestScoringMode:
 
 class TestScoreForSearchRules:
     def test_rules_mode_uses_local_scorer(self):
-        cfg = {
-            "scoring_mode": "rules",
-            "score_threshold": 65,
-            "salary_floor": 120000,
-            "cursor_api_key": "",
-        }
+        cfg = _support_cfg()
         sc, reasons, ok, meta = score_for_search(
-            title="Vue 3 TypeScript remote Middle",
-            snippet="Vue3 TypeScript remote Middle Pinia",
+            title="Linux L1 support remote",
+            snippet="Linux support L1 Python PostgreSQL remote Junior",
             salary_text="",
             schedule="remote",
             company="TestCo",
@@ -36,21 +44,16 @@ class TestScoreForSearchRules:
         )
         assert meta["source"] == "rules"
         assert ok is True
-        assert sc >= 65
-        assert any("Vue" in r or "remote" in r for r in reasons)
+        assert sc >= 80
+        assert any("remote" in r or "must:" in r for r in reasons)
 
 
 class TestScoreForSearchCursorFallback:
     def test_cursor_falls_back_without_key(self):
-        cfg = {
-            "scoring_mode": "cursor",
-            "score_threshold": 65,
-            "salary_floor": 120000,
-            "cursor_api_key": "",
-        }
+        cfg = _support_cfg(scoring_mode="cursor", python_only=False)
         sc, reasons, ok, meta = score_for_search(
-            title="Vue 3 TypeScript remote",
-            snippet="Vue3 TypeScript remote",
+            title="Linux support remote",
+            snippet="Linux support L1 remote",
             schedule="remote",
             cfg=cfg,
         )
@@ -61,8 +64,7 @@ class TestScoreForSearchCursorFallback:
 
 class TestCursorBridgeParse:
     def test_extract_json_shape_documented(self):
-        # Mirror bridge contract used by Node script
-        sample = {"score": 78, "accept": True, "reasons": ["Vue 3", "remote"]}
+        sample = {"score": 78, "accept": True, "reasons": ["Linux", "remote"]}
         raw = json.dumps(sample)
         parsed = json.loads(raw)
         assert parsed["score"] == 78
@@ -71,19 +73,18 @@ class TestCursorBridgeParse:
 
 class TestCursorViaMock:
     def test_cursor_path_when_bridge_returns_ok(self):
-        cfg = {
-            "scoring_mode": "cursor",
-            "score_threshold": 65,
-            "salary_floor": 120000,
-            "cursor_api_key": "test-key",
-            "cursor_model": "composer-2.5",
-            "cursor_score_timeout_sec": 30,
-        }
+        cfg = _support_cfg(
+            scoring_mode="cursor",
+            python_only=False,
+            cursor_api_key="test-key",
+            cursor_model="composer-2.5",
+            cursor_score_timeout_sec=30,
+        )
         fake = {
             "ok": True,
             "score": 82,
             "accept": True,
-            "reasons": ["Vue 3 fit", "remote"],
+            "reasons": ["Linux fit", "remote"],
             "source": "cursor",
             "elapsed_ms": 1234,
             "usage": {"inputTokens": 1000, "outputTokens": 80, "totalTokens": 1080},
@@ -93,8 +94,8 @@ class TestCursorViaMock:
                 br.exists.return_value = True
                 with patch("radar.cursor_score._via_cursor", return_value=fake):
                     sc, reasons, ok, meta = score_for_search(
-                        title="Fullstack Vue",
-                        snippet="Vue3 Node remote",
+                        title="Linux support",
+                        snippet="Linux L1 remote",
                         schedule="remote",
                         cfg=cfg,
                     )
@@ -102,4 +103,3 @@ class TestCursorViaMock:
         assert ok is True
         assert meta["source"] == "cursor"
         assert meta["usage"]["totalTokens"] == 1080
-        assert "Vue 3 fit" in reasons
