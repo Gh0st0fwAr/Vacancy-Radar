@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@450;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="app.css?v=20260815e" />
+  <link rel="stylesheet" href="app.css?v=20260816a" />
   <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 </head>
 <body>
@@ -136,10 +136,17 @@
         </div>
         <div class="panel">
           <h3>Behavior</h3>
-          <label class="toggle"><input type="checkbox" id="opt-sound" /> <span>Sound (x3) when a new vacancy is found</span></label>
+          <label class="toggle"><input type="checkbox" id="opt-sound" checked /> <span>Sound on search done; x3 when new vacancy</span></label>
           <label class="toggle"><input type="checkbox" id="opt-dnd" /> <span>DND - mute all sounds</span></label>
           <label class="toggle"><input type="checkbox" id="opt-min" /> <span>Minimize previous window on hotkey</span></label>
           <label class="toggle"><input type="checkbox" id="opt-autostart" /> <span>Launch at system startup</span></label>
+          <div class="panel-row" style="align-items:center;margin-top:12px">
+            <label for="opt-scoring" style="color:var(--text-dim)">Vacancy scoring</label>
+            <select id="opt-scoring" class="select">
+              <option value="cursor">Cursor SDK (default)</option>
+              <option value="rules">Python rules</option>
+            </select>
+          </div>
         </div>
         <div class="panel">
           <h3>Appearance</h3>

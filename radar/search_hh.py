@@ -12,30 +12,66 @@ from .chrome_lock import chrome_exclusive
 from .cover_letter import make_cover_letter
 from .queue_store import QueueStore, Vacancy, norm_url
 from .refusal import text_looks_like_refusal
-from .scorer import score_vacancy
+from .cursor_score import score_for_search
 from .config import EXCLUDE_FILE, ROUNDS_GLOB, load_config, load_json
+from .metrics_log import append_event
 
 
 JS_CARDS = r"""
 (() => {
   const out = [];
   const seen = new Set();
-  function push(title, url, company, salary, snippet) {
+  function isVisited(root, a) {
+    const nodes = [];
+    let el = root || a;
+    for (let i = 0; i < 6 && el; i++) {
+      nodes.push(el);
+      el = el.parentElement;
+    }
+    if (a) nodes.push(a);
+    for (const n of nodes) {
+      if (!n) continue;
+      const cls = String(n.className || '');
+      if (/visited/i.test(cls)) return true;
+      try {
+        if (n.matches && (
+          n.matches('.vacancy-serp-item_visited') ||
+          n.matches('[class*="serp-item_visited"]') ||
+          n.matches('[class*="--visited"]') ||
+          n.matches('[data-qa*="visited"]')
+        )) return true;
+      } catch (e) {}
+      if (n.getAttribute) {
+        const dv = n.getAttribute('data-visited') || n.getAttribute('data-qa-visited');
+        if (dv === 'true' || dv === '1') return true;
+      }
+    }
+    return false;
+  }
+  function push(title, url, company, salary, snippet, visited) {
     if (!url || seen.has(url)) return;
     seen.add(url);
-    out.push({title: title||'', url, company: company||'', salary: salary||'', snippet: snippet||''});
+    out.push({
+      title: title||'',
+      url,
+      company: company||'',
+      salary: salary||'',
+      snippet: snippet||'',
+      visited: !!visited,
+    });
   }
   document.querySelectorAll('a[data-qa="serp-item__title"], a[data-qa="vacancy-serp__vacancy-title"]').forEach(a => {
-    const root = a.closest('[data-qa="vacancy-serp__vacancy"], .serp-item, article, div') || a.parentElement;
-    const companyEl = root && root.querySelector('[data-qa="vacancy-serp__vacancy-employer"], [data-qa="vacancy-company-name"], a[data-qa="vacancy-serp__vacancy-employer"]');
+    const root = a.closest('[data-qa="vacancy-serp__vacancy"], .serp-item, .vacancy-serp-item, article, div') || a.parentElement;
+    const companyEl = root && root.querySelector('[data-qa="vacancy-serp__vacancy-employer"], [data-qa="vacancy-company-name"], a[data-qa="vacancy-serp__vacancy-employer"], [data-qa="vacancy-serp__vacancy-employer-text"]');
     const salEl = root && root.querySelector('[data-qa="vacancy-serp__vacancy-compensation"], [data-qa="vacancy-salary"]');
     const snip = root ? (root.innerText||'').slice(0, 800) : '';
-    push((a.innerText||'').trim(), a.href, companyEl ? (companyEl.innerText||'').trim() : '', salEl ? (salEl.innerText||'').trim() : '', snip);
+    push((a.innerText||'').trim(), a.href, companyEl ? (companyEl.innerText||'').trim() : '', salEl ? (salEl.innerText||'').trim() : '', snip, isVisited(root, a));
   });
   if (out.length === 0) {
     document.querySelectorAll('a[href*="/vacancy/"]').forEach(a => {
       if (!/\/vacancy\/\d+/.test(a.href)) return;
-      push((a.innerText||'').trim() || 'Vacancy', a.href, '', '', '');
+      const root = a.closest('[data-qa="vacancy-serp__vacancy"], .serp-item, .vacancy-serp-item, article, div') || a.parentElement;
+      push((a.innerText||'').trim() || 'Vacancy', a.href, '', '', '', isVisited(root, a));
     });
   }
   const needLogin = /account\/login/i.test(location.href);
@@ -106,7 +142,7 @@ def _fetch_vacancy_details(session: CdpSession, url: str, settle: float) -> Opti
 
 def search_once(store: QueueStore) -> Dict:
     cfg = load_config()
-    threshold = int(cfg.get("score_threshold") or 70)
+    threshold = int(cfg.get("score_threshold") or 65)
     url = cfg.get("hh_search_url")
     excludes = load_excludes()
     deep = bool(cfg.get("deep_score", True))
@@ -138,7 +174,16 @@ def search_once(store: QueueStore) -> Dict:
                 candidates: List[dict] = []
                 for c in cards:
                     link = norm_url(c.get("url") or "")
-                    if not link or link in excludes or store.known(link):
+                    if not link or link in excludes:
+                        skipped += 1
+                        continue
+                    # Already in queue / previously scored or remembered — no rescore, no letter
+                    if store.known(link):
+                        skipped += 1
+                        continue
+                    # HH SERP "visited" (opened in browser) — remember, do not open/score/letter
+                    if c.get("visited"):
+                        store.remember(link)
                         skipped += 1
                         continue
                     candidates.append(c)
@@ -148,6 +193,9 @@ def search_once(store: QueueStore) -> Dict:
 
                 for c in candidates:
                     link = norm_url(c.get("url") or "")
+                    if not link or store.known(link):
+                        skipped += 1
+                        continue
                     title = (c.get("title") or "").strip() or "Без названия"
                     company = (c.get("company") or "").strip()
                     salary = (c.get("salary") or "").strip()
@@ -178,14 +226,19 @@ def search_once(store: QueueStore) -> Dict:
                             if details.get("experience"):
                                 experience = str(details["experience"]).strip()
 
-                    sc, reasons, ok = score_vacancy(
-                        title,
-                        snippet,
+                    sc, reasons, ok, score_meta = score_for_search(
+                        title=title,
+                        snippet=snippet,
                         salary_text=salary,
                         schedule=schedule,
                         experience=experience,
-                        salary_floor=int(cfg.get("salary_floor") or 120000),
+                        company=company,
+                        cfg=cfg,
                     )
+                    src = str((score_meta or {}).get("source") or "rules")
+                    reasons = list(reasons) + [f"score:{src}"]
+                    # Any scored URL is remembered so Cursor is not billed again next tick
+                    store.remember(link)
                     if text_looks_like_refusal(snippet, title) or (
                         reasons and any("refusal" in r.lower() or "Отказ" in r for r in reasons)
                     ):
@@ -233,7 +286,7 @@ def search_once(store: QueueStore) -> Dict:
         return {"ok": False, "error": str(e), "added": [], "checked": 0}
 
     elapsed = round(time.time() - t0, 1)
-    return {
+    result = {
         "ok": True,
         "added": added,
         "checked": skipped + len(added),
@@ -244,6 +297,21 @@ def search_once(store: QueueStore) -> Dict:
         "href": url or "",
         "letter_upgrade_urls": [v.url for v in added],
     }
+    try:
+        append_event(
+            "search",
+            ok=True,
+            elapsed_ms=int(elapsed * 1000),
+            elapsed_sec=elapsed,
+            added=len(added),
+            checked=skipped + len(added),
+            skipped=skipped,
+            deep_opened=deep_opened,
+            deep=bool(deep),
+        )
+    except Exception:
+        pass
+    return result
 
 
 def upgrade_cover_letters(store: QueueStore, only_urls: Optional[set] = None) -> int:
@@ -251,7 +319,9 @@ def upgrade_cover_letters(store: QueueStore, only_urls: Optional[set] = None) ->
     from .cover_letter import _api_key, is_stale_template
 
     cfg = load_config()
-    want_cursor = bool(cfg.get("cover_letter_via_cursor", True))
+    want_cursor = bool(cfg.get("cover_letter_via_cursor", True)) and not bool(
+        cfg.get("python_only", False)
+    )
     has_key = bool(_api_key(cfg))
     upgraded = 0
     for v in list(store.items):

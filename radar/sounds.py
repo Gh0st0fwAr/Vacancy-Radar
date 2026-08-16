@@ -54,17 +54,17 @@ def beep_triple() -> None:
 
 def beep_search_done() -> None:
     """
-    Успешный тик поиска / «Искать сейчас».
-    Две короткие ноты вверх — заметно короче шести писков алерта.
+    Успешный тик поиска (таймер и «Искать сейчас»).
+    Заметнее короткого клика: две ноты вверх, ~0.35с — слышно из трея.
     """
     def _run():
         try:
             import time
             import winsound
 
-            winsound.Beep(523, 55)
-            time.sleep(0.02)
-            winsound.Beep(784, 70)
+            winsound.Beep(587, 120)  # D5
+            time.sleep(0.05)
+            winsound.Beep(880, 160)  # A5
         except Exception:
             try:
                 print("\a", flush=True)
@@ -77,6 +77,21 @@ def beep_search_done() -> None:
 def beep_six() -> None:
     """Активность работодателя (приглашение / чат / собес)."""
     _beep_loop(6, freq=1200, dur=120, gap=0.06)
+
+
+def announce_search(cfg: Optional[dict], n_added: int = 0) -> Optional[str]:
+    """
+    Sound after a successful search tick (timer or manual).
+    Always chirp when sound is on; triple only if new vacancies were added.
+    Returns a short log line, or None if muted.
+    """
+    if not sound_allowed(cfg):
+        return None
+    beep_search_done()
+    if n_added > 0:
+        beep_triple()
+        return f"Звук: поиск завершён (+тройной: новых {n_added})"
+    return "Звук: поиск завершён"
 
 
 def sound_allowed(cfg: Optional[dict], *, check: Optional[Callable[[], bool]] = None) -> bool:

@@ -6,6 +6,8 @@ data/stats.json
 data/negotiations.json
 data/radar.log
 data/*.bak
+data/cursor_score_metrics.jsonl
+data/cursor_score_bench.json
 _probe_*.py
 _probe_*.txt
 _run_*.py

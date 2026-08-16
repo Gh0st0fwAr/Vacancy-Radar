@@ -162,6 +162,15 @@ class QueueStore:
         if persist:
             self.save()
 
+    def remember(self, url: str, *, persist: bool = True) -> None:
+        """Mark URL as seen without adding to queue (skip future search/score)."""
+        nid = norm_url(url)
+        if not nid:
+            return
+        self.seen.add(nid)
+        if persist:
+            self.save()
+
     def known(self, url: str) -> bool:
         return norm_url(url) in self.seen or any(
             norm_url(v.url) == norm_url(url) for v in self.items

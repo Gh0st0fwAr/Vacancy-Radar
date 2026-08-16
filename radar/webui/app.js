@@ -251,6 +251,8 @@
     document.getElementById("opt-dnd").checked = !!s.dnd;
     document.getElementById("opt-min").checked = !!s.minimize_previous;
     document.getElementById("opt-autostart").checked = !!s.autostart_enabled;
+    const scoring = document.getElementById("opt-scoring");
+    if (scoring) scoring.value = s.scoring_mode === "rules" ? "rules" : "cursor";
     const sel = document.getElementById("opt-theme");
     if (sel && s.themes && !sel.dataset.filled) {
       sel.innerHTML = (s.themes || [])
@@ -364,7 +366,17 @@
           dnd: document.getElementById("opt-dnd").checked,
           minimize_previous: document.getElementById("opt-min").checked,
           autostart_enabled: document.getElementById("opt-autostart").checked,
+          scoring_mode: document.getElementById("opt-scoring").value,
         });
+      });
+    });
+    document.getElementById("opt-scoring").addEventListener("change", () => {
+      send("setOpt", {
+        sound_enabled: document.getElementById("opt-sound").checked,
+        dnd: document.getElementById("opt-dnd").checked,
+        minimize_previous: document.getElementById("opt-min").checked,
+        autostart_enabled: document.getElementById("opt-autostart").checked,
+        scoring_mode: document.getElementById("opt-scoring").value,
       });
     });
     document.getElementById("opt-theme").addEventListener("change", (e) => {

@@ -33,7 +33,15 @@ from radar.hotkeys import HotkeyManager, hotkey_label
 from radar.queue_store import QueueStore
 from radar.search_hh import open_vacancy_and_prepare, search_once, upgrade_cover_letters
 from radar.cover_letter import _api_key, is_stale_template
-from radar.sounds import beep_double, beep_once, beep_search_done, beep_six, beep_triple, sound_allowed
+from radar.sounds import (
+    announce_search,
+    beep_double,
+    beep_once,
+    beep_search_done,
+    beep_six,
+    beep_triple,
+    sound_allowed,
+)
 from radar.alerts import detect_employer_activity, format_activity_toast
 from radar.negotiations_hh import apply_negotiations
 from radar.autostart import is_autostart_enabled, set_autostart
@@ -168,6 +176,7 @@ class MainWindow(QMainWindow):
                 "autostart_enabled": bool(self.cfg.get("autostart_enabled", False))
                 or is_autostart_enabled(),
                 "ui_theme": str(self.cfg.get("ui_theme") or "04"),
+                "scoring_mode": str(self.cfg.get("scoring_mode") or "cursor"),
                 "themes": [{"id": t, "label": THEME_LABELS.get(t, t)} for t in THEME_IDS],
             },
         )
@@ -186,15 +195,24 @@ class MainWindow(QMainWindow):
             self.show_text("Guide: hotkey", GUIDE_HOTKEY)
 
     def _web_set_opts(self, p: dict):
-        self.cfg["sound_enabled"] = bool(p.get("sound_enabled"))
-        self.cfg["dnd"] = bool(p.get("dnd"))
-        self.cfg["minimize_previous"] = bool(p.get("minimize_previous"))
-        want = bool(p.get("autostart_enabled"))
-        prev = bool(self.cfg.get("autostart_enabled", False))
-        self.cfg["autostart_enabled"] = want
+        # Update only keys present — avoid wiping sound when payload is partial.
+        if "sound_enabled" in p:
+            self.cfg["sound_enabled"] = bool(p.get("sound_enabled"))
+        if "dnd" in p:
+            self.cfg["dnd"] = bool(p.get("dnd"))
+        if "minimize_previous" in p:
+            self.cfg["minimize_previous"] = bool(p.get("minimize_previous"))
+        if "scoring_mode" in p:
+            mode = str(p.get("scoring_mode") or "cursor").strip().lower()
+            self.cfg["scoring_mode"] = mode if mode in ("cursor", "rules") else "cursor"
+            self.append_log("Scoring mode: " + str(self.cfg["scoring_mode"]))
+        if "autostart_enabled" in p:
+            want = bool(p.get("autostart_enabled"))
+            prev = bool(self.cfg.get("autostart_enabled", False))
+            self.cfg["autostart_enabled"] = want
+            if want != prev:
+                self.append_log(set_autostart(want))
         save_config(self.cfg)
-        if want != prev:
-            self.append_log(set_autostart(want))
 
     def _web_set_theme(self, tid: str):
         self.cfg["ui_theme"] = str(tid or "04")
@@ -664,15 +682,14 @@ class MainWindow(QMainWindow):
             f"{result.get('elapsed_sec', '?')}с"
         )
         self.refresh_queue_list()
-        if sound_allowed(self.cfg):
-            beep_search_done()
+        msg = announce_search(self.cfg, len(added))
+        if msg:
+            self.append_log(msg)
         purged = self.store.purge_refused(persist=True)
         if purged:
             self.append_log(f"Убрано отказов из очереди: {purged}")
             self.refresh_queue_list()
         if added:
-            if sound_allowed(self.cfg):
-                beep_triple()
             if hasattr(self, "tray"):
                 self.tray.showMessage(
                     "VacancyRadar",

@@ -26,7 +26,7 @@ LOG_PATH = DATA / "radar.log"
 DEFAULT_CONFIG = {
     "search_interval_min": 15,
     "stats_interval_min": 15,
-    "score_threshold": 70,
+    "score_threshold": 65,
     "hotkey": "ctrl+alt+q",
     "sound_enabled": True,
     "dnd": False,
@@ -34,11 +34,14 @@ DEFAULT_CONFIG = {
     "chrome_debug_port": 9222,
     "hh_search_url": (
         "https://hh.ru/search/vacancy?"
-        "text=Vue+OR+Nuxt"
+        "text=Vue+OR+Vue2+OR+Vue3+OR+Nuxt+OR+TypeScript"
+        "+OR+Fullstack+OR+Full-stack+OR+%22Full+stack%22"
+        "+OR+%D0%A4%D1%83%D0%BB%D0%BB%D1%81%D1%82%D0%B5%D0%BA"
+        "+OR+%D0%A4%D1%83%D0%BB%D1%81%D1%82%D0%B5%D0%BA"
         "&search_field=name&search_field=description"
         "&schedule=remote"
         "&order_by=publication_time"
-        "&search_period=1"
+        "&search_period=2"
         "&items_on_page=50"
     ),
     "salary_target": 160000,
@@ -47,11 +50,16 @@ DEFAULT_CONFIG = {
     "deep_score": True,
     "vacancy_settle_sec": 1.1,
     "deep_score_max": 50,
-    # Письма через Cursor SDK (Node bridge). Без ключа — локальная адаптация под текст.
-    "cover_letter_via_cursor": True,
+    # Письма: на ветке pyrhon-only по умолчанию только локальный Python-шаблон.
+    "cover_letter_via_cursor": False,
     "cursor_api_key": "",
     "cursor_model": "composer-2.5",
     "cover_letter_timeout_sec": 90,
+    # Scoring: "cursor" (SDK) or "rules" (local Python).
+    # python_only=true принудительно rules + локальные письма (без Cursor SDK).
+    "scoring_mode": "rules",
+    "python_only": True,
+    "cursor_score_timeout_sec": 120,
     # UI: 04 = hybrid default (see references/04_*.png)
     "ui_theme": "04",
     # Embedded WebEngine zoom (1.0 = CSS px as-is). Not a Chrome browser tab.

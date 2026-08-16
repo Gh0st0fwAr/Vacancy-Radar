@@ -7,13 +7,13 @@ import os
 import re
 import subprocess
 import tempfile
-from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from .config import ROOT, load_config
+from .metrics_log import append_event
 
 BRIDGE = ROOT / "cursor_bridge" / "generate_letter.mjs"
-RULES_CWD = Path(r"G:\Лёха уроки")
+RULES_CWD = ROOT.parent
 
 HEADER = (
     "Портфолио: https://gh0st0fwar.github.io/\n"
@@ -38,9 +38,11 @@ def make_cover_letter(
     force_local: bool = False,
 ) -> Tuple[str, str]:
     """
-    Возвращает (письмо, источник).
-    источник: "cursor" | "local"
+    Returns (letter, source).
+    source: "cursor" | "local"
     """
+    import time as _time
+
     title = (vacancy_title or "Frontend").strip()
     company = (company or "").strip()
     description = (description or "").strip()
@@ -48,9 +50,12 @@ def make_cover_letter(
     reasons_list = list(reasons or [])
 
     cfg = load_config()
+    if bool(cfg.get("python_only", False)):
+        force_local = True
     use_cursor = bool(cfg.get("cover_letter_via_cursor", True)) and not force_local
+    t0 = _time.perf_counter()
     if use_cursor:
-        letter = _via_cursor(
+        letter, meta = _via_cursor(
             title=title,
             company=company,
             description=description,
@@ -59,18 +64,36 @@ def make_cover_letter(
             cfg=cfg,
         )
         if letter:
+            elapsed = int(meta.get("elapsed_ms") or (_time.perf_counter() - t0) * 1000)
+            append_event(
+                "letter",
+                title=title[:120],
+                company=company[:80],
+                source="cursor",
+                elapsed_ms=elapsed,
+                usage=meta.get("usage"),
+                letter_chars=len(letter),
+            )
             return letter, "cursor"
 
-    return (
-        _via_local(
-            title=title,
-            company=company,
-            description=description,
-            salary=salary,
-            reasons=reasons_list,
-        ),
-        "local",
+    letter = _via_local(
+        title=title,
+        company=company,
+        description=description,
+        salary=salary,
+        reasons=reasons_list,
     )
+    elapsed = int((_time.perf_counter() - t0) * 1000)
+    append_event(
+        "letter",
+        title=title[:120],
+        company=company[:80],
+        source="local",
+        elapsed_ms=elapsed,
+        usage=None,
+        letter_chars=len(letter or ""),
+    )
+    return letter, "local"
 
 
 def is_stale_template(letter: str) -> bool:
@@ -94,12 +117,14 @@ def _via_cursor(
     salary: str,
     reasons: List[str],
     cfg: dict,
-) -> Optional[str]:
+) -> Tuple[Optional[str], dict]:
+    """Returns (letter_or_None, meta). meta may include usage/elapsed_ms."""
+    meta: dict = {}
     if not BRIDGE.exists():
-        return None
+        return None, meta
     key = _api_key(cfg)
     if not key:
-        return None
+        return None, meta
 
     payload = {
         "title": title,
@@ -110,6 +135,7 @@ def _via_cursor(
         "apiKey": key,
         "model": cfg.get("cursor_model") or "composer-2.5",
         "cwd": str(RULES_CWD),
+        "returnMeta": True,
     }
     timeout = int(cfg.get("cover_letter_timeout_sec") or 90)
 
@@ -139,12 +165,20 @@ def _via_cursor(
             err = (proc.stderr or proc.stdout or "").strip().splitlines()
             raise RuntimeError(err[0] if err else f"cursor bridge exit {proc.returncode}")
 
-        letter = (proc.stdout or "").strip()
+        raw = (proc.stdout or "").strip()
+        letter = ""
+        if raw.startswith("{"):
+            data = json.loads(raw)
+            letter = str(data.get("letter") or "").strip()
+            meta["usage"] = data.get("usage")
+            meta["elapsed_ms"] = data.get("elapsed_ms")
+        else:
+            letter = raw
         if len(letter) < 200 or "Портфолио:" not in letter:
-            raise RuntimeError("Cursor вернул пустое/битое письмо")
-        return _sanitize(letter)
+            raise RuntimeError("Cursor returned empty/broken letter")
+        return _sanitize(letter), meta
     except Exception:
-        return None
+        return None, meta
 
 
 def _sanitize(letter: str) -> str:

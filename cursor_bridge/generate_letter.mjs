@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
- * VacancyRadar → Cursor SDK bridge.
- * stdin/argv JSON: { title, company, description, salary, reasons, model?, apiKey?, cwd? }
- * stdout: plain cover letter text
- * exit 0 on success, non-zero on failure (stderr = reason)
+ * VacancyRadar -> Cursor SDK bridge for cover letters.
+ * Payload: { title, company, description, salary, reasons, model?, apiKey?, cwd?, returnMeta? }
+ * stdout: plain letter OR JSON {ok, letter, usage, elapsed_ms} if returnMeta=true
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -73,14 +72,31 @@ function extractLetter(text) {
   const s = String(text || "").trim();
   const m = s.match(/<<<LETTER>>>\s*([\s\S]*?)\s*<<<END>>>/i);
   if (m) return m[1].trim();
-  // fallback: whole response if it looks like a letter
   if (/Портфолио:\s*https:\/\/gh0st0fwar\.github\.io/i.test(s) && /Здравствуйте/i.test(s)) {
     return s.replace(/^```[\w]*\n?|\n?```$/g, "").trim();
   }
   throw new Error("Cursor response missing <<<LETTER>>> block");
 }
 
+function pickUsage(result) {
+  const u = result?.usage;
+  if (!u || typeof u !== "object") return null;
+  return {
+    inputTokens: Number(u.inputTokens || 0),
+    outputTokens: Number(u.outputTokens || 0),
+    cacheReadTokens: Number(u.cacheReadTokens || 0),
+    cacheWriteTokens: Number(u.cacheWriteTokens || 0),
+    reasoningTokens: Number(u.reasoningTokens || 0),
+    totalTokens: Number(
+      u.totalTokens != null
+        ? u.totalTokens
+        : (u.inputTokens || 0) + (u.outputTokens || 0)
+    ),
+  };
+}
+
 async function main() {
+  const t0 = Date.now();
   const payload = readPayload();
   const apiKey =
     payload.apiKey ||
@@ -95,16 +111,18 @@ async function main() {
 
   const cwd =
     payload.cwd ||
-    path.resolve(__dirname, "..", "..") || // G:\Лёха уроки
+    path.resolve(__dirname, "..", "..") ||
     process.cwd();
 
   const modelId = payload.model || "composer-2.5";
   const result = await Agent.prompt(buildPrompt(payload), {
     apiKey,
     model: { id: modelId },
-    // Только текст — без правок файлов / shell
     tools: [],
-    local: { cwd },
+    local: {
+      cwd,
+      sandboxOptions: { enabled: false },
+    },
   });
 
   if (result.status === "error") {
@@ -115,6 +133,20 @@ async function main() {
   if (letter.length < 200) {
     throw new Error("Письмо слишком короткое / пустое");
   }
+
+  if (payload.returnMeta) {
+    process.stdout.write(
+      JSON.stringify({
+        ok: true,
+        letter,
+        usage: pickUsage(result),
+        elapsed_ms: Date.now() - t0,
+        runId: result.id || null,
+      })
+    );
+    return;
+  }
+
   process.stdout.write(letter);
 }
 

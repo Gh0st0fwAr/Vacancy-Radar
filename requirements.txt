@@ -4,5 +4,6 @@ pynput>=1.7
 selenium>=4.15
 requests>=2.31
 Pillow>=10.0
+pypdf>=4.0
 websocket-client>=1.6
 pytest>=8.0
