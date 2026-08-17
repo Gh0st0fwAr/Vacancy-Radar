@@ -1,20 +1,37 @@
-# Vacancy Radar
+# Vacancy Radar (`nastya-python`)
 
-**Ветка `python-only`:** поиск и очередь как в основной версии (Clear Check, хоткей, статистика HH, статус писем), но скоринг — Python rules по анкете, письма — локальный шаблон. Cursor SDK выключен (`python_only=true`).
+Поиск вакансий на [hh.ru](https://hh.ru), Python-скоринг по анкете, очередь и локальные сопроводительные. Cursor SDK выключен (`python_only=true`).
 
-Профиль тестировщика: заполните `анкета.txt`, перенесите ответы в `data/config.json` (старт с `data/config.example.json`). Резюме PDF и портфолио — путями в конфиге.
+Готовый профиль Насти уже в репозитории:
 
-Ветка `nastya-python`: анкета Насти лежит в `Настя Анкета.txt` (ещё не перенесена в config.example — конфиг пустой, как шаблон).
+- `data/config.json` — скоринг, поиск 7 дней, письмо, контакты
+- `data/nstyacv.pdf` — резюме
+- `data/_vacancy_exclude.json` — исключения дублей
+- `КАК_ЗАПУСТИТЬ.txt` — короткая памятка
 
-Небольшая утилита для автоматического поиска вакансий на [hh.ru](https://hh.ru), скоринга, очереди «горячих» карточек и подготовки сопроводительных писем. Репозиторий: [Gh0st0fwAr/Vacancy-Radar](https://github.com/Gh0st0fwAr/Vacancy-Radar).
+На чужом компьютере **не** копируйте `config.example.json` поверх `config.json` — затрёте калибровку.
 
+Репозиторий: [Gh0st0fwAr/Vacancy-Radar](https://github.com/Gh0st0fwAr/Vacancy-Radar). Ветка: `nastya-python`.
 
-
-**Требования:** Windows, Python 3.9+, Google Chrome, [Cursor](https://cursor.com) (для генерации писем через Cursor SDK; без ключа письма собираются локальным шаблоном).
-
-
+**Требования:** Windows, Python 3.9+, Google Chrome. Cursor и npm не нужны.
 
 Версия: **v0.6.2**
+
+---
+
+## Быстрый старт
+
+```bash
+git clone -b nastya-python --single-branch https://github.com/Gh0st0fwAr/Vacancy-Radar.git VacancyRadar_Nastya
+cd VacancyRadar_Nastya
+pip install -r requirements.txt
+Start VacancyRadar.bat
+```
+
+или `python main.py`.
+
+Дальше в окне Radar: **Stats → Open HH / Chrome login** — вход в hh.ru в Chrome Radar (порт 9222) → **Проверить связь** → **Искать сейчас**.
+
 
 
 
@@ -26,7 +43,7 @@
 
 
 
-- Периодический поиск удалённых вакансий Vue / Nuxt на hh.ru через Chrome DevTools (CDP)
+- Периодический поиск вакансий дизайнера карточек / инфографики на hh.ru через Chrome DevTools (CDP)
 
 - Скоринг по полному тексту вакансии; в очередь попадают карточки с порогом (по умолчанию ≥ 70%)
 
@@ -41,80 +58,6 @@
 
 
 ---
-
-
-
-## Быстрый старт
-
-
-
-1. Клонировать репозиторий и перейти в папку проекта.
-
-2. Установить зависимости:
-
-
-
-\\ash
-
-pip install -r requirements.txt
-
-\
-
-3. (Опционально, для писем через Cursor SDK.) В каталоге \cursor_bridge\:
-
-
-
-\\ash
-
-npm install
-
-\
-
-4. Создать конфиг:
-
-
-
-\\ash
-
-copy data\\config.example.json data\\config.json
-
-\
-
-Откройте \data/config.json\ и при необходимости укажите \cursor_api_key\ (Dashboard → Integrations на cursor.com). **Не коммитьте ключ в git.**
-
-
-
-5. Запуск:
-
-
-
-\\ash
-
-Start VacancyRadar.bat
-
-\
-
-или
-
-
-
-\\ash
-
-python main.py
-
-\
-
-6. В окне Radar нажмите **«Войти в HH / Открыть Chrome»** и залогиньтесь в hh.ru в профиле Chrome Radar (порт отладки \9222\).
-
-7. Нажмите **«Проверить связь»** — должно быть «Связь OK».
-
-8. **«Искать сейчас»** или дождитесь автопоиска по таймеру.
-
-
-
----
-
-
 
 ## Интерфейс
 
@@ -296,7 +239,7 @@ python main.py
 
 
 
-Пример без секретов: \data/config.example.json\.
+На этой ветке `data/config.json` уже заполнен и лежит в git. `config.example.json` — копия того же профиля.
 
 
 
@@ -320,7 +263,7 @@ python main.py
 
   cursor_bridge/          # Node-мост к Cursor SDK
 
-  data/                   # config, queue, stats, лог (локально)
+data/                   # config.json (профиль Насти в git), очередь и логи — локально
 
   assets/                 # иконка
 
@@ -346,13 +289,10 @@ python -m pytest tests/ -v
 
 
 
-- Нужен отдельный профиль Chrome Radar с \--remote-debugging-port\ и \--remote-allow-origins=*\.
-
+- Нужен отдельный профиль Chrome Radar с --remote-debugging-port и --remote-allow-origins=*.
 - Не закрывайте этот Chrome во время работы поиска/статистики.
-
-- Ключи API, \chrome_profile/\, живая очередь и логи в git не коммитятся (см. \.gitignore\).
-
-- Утилита заточена под удалённый Vue/Nuxt-поиск; URL поиска меняйте под себя в конфиге.
+- `chrome_profile/`, очередь (`data/queue.json`) и логи в git не коммитятся. Профиль Насти (`data/config.json`, резюме, скоринг) — коммитится.
+- Поиск заточен под графический дизайн / карточки маркетплейсов; URL и веса — в `data/config.json`.
 
 
 
