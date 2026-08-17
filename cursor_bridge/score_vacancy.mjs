@@ -59,7 +59,15 @@ CANONICAL CONTEXT LINKS:
 - Portfolio: ${portfolioUrl}
 - Portfolio (same): https://Gh0st0fwAr.github.io/
 - GitHub: ${githubUrl}
-Do not refuse scoring if URLs cannot be fetched � context is already embedded below.
+Do not refuse scoring if URLs cannot be fetched — context is already embedded below.
+
+CALIBRATION (same as SCORING_CONTEXT.md; target ±6 vs agent gold set):
+- Resume header: Frontend Developer (Vue 3, TypeScript) · Middle.
+- Senior/Lead in vacancy title: minus 8–12, not zero if the core stack is Vue.
+- "Confident Nuxt" is a minus; Vue3+TS+remote can still score 74–86.
+- PHP/Laravel/Symfony/Nest as half the role: 60–68, accept=false even if Vue is in parentheses.
+- Do not inflate score to meet threshold. Senior Vue 74–78 is honest; 100 is wrong.
+- Vue-core remote SPA (LAB / IdaProject / 585GOLD class) stays high 80s. Keep them above 70.
 
 ${candidate}
 
@@ -81,7 +89,7 @@ Queue threshold: ${threshold}.
 Return ONLY one JSON object (no markdown):
 {"score":0-100,"accept":true|false,"reasons":["short reason 1","..."]}
 accept=true only if the candidate is a genuine FIT for this role (not just keyword overlap).
-Do not inflate score to meet threshold � be honest; sub-threshold fit ? accept=false.
+Do not inflate score to meet threshold — be honest; sub-threshold fit => accept=false.
 reasons: 2-6 short items (RU or EN) about FIT.`;
 }
 

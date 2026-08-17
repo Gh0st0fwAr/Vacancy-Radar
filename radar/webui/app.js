@@ -105,6 +105,13 @@
           '">' +
           esc(it.pill || "") +
           "</span>" +
+          '<span class="vac-letter' +
+          (it.letterStatus === "writing" ? " is-busy" : "") +
+          (it.letterStatus === "fail" ? " is-fail" : "") +
+          (it.letterStatus === "ok" || it.letterStatus === "cursor" ? " is-ok" : "") +
+          '">' +
+          esc(it.letter || "") +
+          "</span>" +
           '<span class="vac-score">' +
           (it.score > 0 ? it.score : "") +
           "</span>" +
@@ -130,6 +137,11 @@
       document.getElementById("d-facts").innerHTML = "";
       document.getElementById("d-skills").innerHTML = "";
       document.getElementById("d-letter").textContent = "";
+      const lst0 = document.getElementById("d-letter-status");
+      if (lst0) {
+        lst0.textContent = "—";
+        lst0.className = "letter-status";
+      }
       return;
     }
     document.getElementById("d-title").textContent = d.title || "";
@@ -158,6 +170,25 @@
       .map((s) => '<span class="skill">' + esc(s) + "</span>")
       .join("");
     document.getElementById("d-letter").textContent = d.letter || "";
+    const lst = document.getElementById("d-letter-status");
+    if (lst) {
+      const st = d.letterStatus || "";
+      const labels = {
+        writing: "Writing…",
+        queued: "Queued",
+        pending: "Pending",
+        ok: "Ready",
+        cursor: "Ready",
+        local: "Local",
+        fail: "Failed",
+      };
+      lst.textContent = labels[st] || (d.letter ? "Ready" : "—");
+      lst.className =
+        "letter-status" +
+        (st === "writing" ? " is-busy" : "") +
+        (st === "fail" ? " is-fail" : "") +
+        (st === "ok" || st === "cursor" ? " is-ok" : "");
+    }
   }
 
   function renderStrip() {

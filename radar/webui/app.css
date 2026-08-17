@@ -288,12 +288,16 @@ button {
 }
 .queue-cols {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+.queue-cols span:nth-last-child(2) {
+  width: 44px;
+  text-align: right;
 }
 .queue-cols span:last-child {
   width: 44px;
@@ -315,7 +319,7 @@ button {
 */
 .vac-item {
   display: grid;
-  grid-template-columns: var(--stripe-w) 48px 1fr auto auto;
+  grid-template-columns: var(--stripe-w) 48px 1fr auto auto auto;
   gap: 10px;
   align-items: center;
   width: 100%;
@@ -380,6 +384,7 @@ button {
 }
 .vac-item.is-visited .vac-company,
 .vac-item.is-visited .vac-meta,
+.vac-item.is-visited .vac-letter,
 .vac-item.is-visited .vac-score {
   color: #64748b;
 }
@@ -500,6 +505,26 @@ button {
   font-weight: 700;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
+}
+
+.vac-letter {
+  width: 44px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.vac-letter.is-busy {
+  color: var(--accent);
+  animation: activity-pulse 1s ease-in-out infinite;
+}
+.vac-letter.is-ok {
+  color: var(--accent);
+}
+.vac-letter.is-fail {
+  color: #fecaca;
 }
 
 .queue-actions {
@@ -717,6 +742,24 @@ button {
   font-size: 16px;
   color: var(--text);
   font-weight: 700;
+}
+.letter-status {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.letter-status.is-busy {
+  color: var(--accent);
+  animation: activity-pulse 1s ease-in-out infinite;
+}
+.letter-status.is-ok {
+  color: var(--accent);
+}
+.letter-status.is-fail {
+  color: #fecaca;
 }
 .letter-body {
   flex: 1;

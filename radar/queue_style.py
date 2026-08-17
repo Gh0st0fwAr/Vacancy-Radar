@@ -89,6 +89,65 @@ def pill_label(kind: str, v: Optional[Vacancy] = None) -> str:
     return ""
 
 
+LETTER_CHIP = {
+    "writing": "…",
+    "queued": "WAIT",
+    "pending": "WAIT",
+    "ok": "OK",
+    "cursor": "OK",
+    "local": "LOC",
+    "fail": "FAIL",
+}
+
+LETTER_FACT = {
+    "writing": "Writing…",
+    "queued": "Queued",
+    "pending": "Pending",
+    "ok": "Ready",
+    "cursor": "Ready",
+    "local": "Local",
+    "fail": "Failed",
+}
+
+
+def letter_chip(status: str) -> str:
+    """Short letter-status chip, analogous to the score column."""
+    return LETTER_CHIP.get((status or "").strip().lower(), "")
+
+
+def letter_fact(status: str) -> str:
+    """Detail-pane label for letter generation state."""
+    key = (status or "").strip().lower()
+    return LETTER_FACT.get(key, status or "?")
+
+
+def letter_runtime_status(
+    v: Vacancy,
+    *,
+    inflight: Optional[set] = None,
+    queued: Optional[set] = None,
+) -> str:
+    """writing | queued | pending | ok | local | fail | ''."""
+    url = getattr(v, "url", "") or ""
+    if inflight and url in inflight:
+        return "writing"
+    if queued and url in queued:
+        return "queued"
+    src = (getattr(v, "letter_source", "") or "").strip().lower()
+    text = (getattr(v, "cover_letter", "") or "").strip()
+    if src in ("cursor", "ok") and text:
+        return "ok"
+    if src == "local" and text:
+        return "local"
+    if src == "fail":
+        return "fail"
+    if v.status in ("banned", "skipped", "applied"):
+        return "ok" if text else ""
+    if src == "pending" or not text:
+        return "pending"
+    return ""
+
+
 def colors_for_kind(kind: str) -> Tuple[QColor, QColor, QColor]:
     """Returns (fg, bg, stripe)."""
     t = theme_mod

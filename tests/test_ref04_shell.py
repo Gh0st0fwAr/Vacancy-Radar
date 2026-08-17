@@ -21,6 +21,24 @@ def test_pill_labels():
     assert pill_label("pointer", v) == "NOW"
 
 
+def test_letter_chip_and_runtime():
+    from radar.queue_style import letter_chip, letter_fact, letter_runtime_status
+
+    v = Vacancy(id="1", title="T", company="C", url="https://hh.ru/vacancy/1", score=80, status="new")
+    assert letter_runtime_status(v) == "pending"
+    assert letter_chip("pending") == "WAIT"
+    assert letter_chip("writing") == "…"
+    assert letter_chip("ok") == "OK"
+    assert letter_fact("writing") == "Writing…"
+    v.letter_source = "cursor"
+    v.cover_letter = "body"
+    assert letter_runtime_status(v) == "ok"
+    assert letter_runtime_status(v, inflight={"https://hh.ru/vacancy/1"}) == "writing"
+    v.letter_source = "fail"
+    v.cover_letter = ""
+    assert letter_runtime_status(v) == "fail"
+
+
 def test_status_kind_pointer_wins():
     v = Vacancy(
         id="1",

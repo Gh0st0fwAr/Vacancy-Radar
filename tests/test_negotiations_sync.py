@@ -265,3 +265,12 @@ class TestBgTimeoutRaceLogic:
         finish_ok("a")
         finish_ok("b")
         assert applied == ["a"]
+
+
+class TestScrapeJs:
+    def test_employer_reply_regex_is_valid_js(self):
+        from radar.negotiations_hh import JS_SCRAPE_ITEMS
+
+        assert "????????" not in JS_SCRAPE_ITEMS
+        assert "\\u043e\\u0442\\u0432\\u0435\\u0442\\u0438\\u043b" in JS_SCRAPE_ITEMS
+

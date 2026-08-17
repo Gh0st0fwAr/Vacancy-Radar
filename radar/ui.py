@@ -46,10 +46,18 @@ from radar.sounds import (
 from radar.alerts import detect_employer_activity, format_activity_toast
 from radar.negotiations_hh import apply_negotiations
 from radar.autostart import is_autostart_enabled, set_autostart
-from radar.queue_style import is_blue, pill_label, status_kind
+from radar.queue_style import (
+    is_blue,
+    letter_chip,
+    letter_fact,
+    letter_runtime_status,
+    pill_label,
+    status_kind,
+)
 from radar.stats_hh import fetch_stats
 from radar.theme import THEME_LABELS, apply_app_font, apply_theme
 from radar.themes import THEME_IDS
+from radar.web_host import WebUiHost
 from radar.win_hotkey import WindowsGlobalHotkey
 
 
@@ -104,7 +112,11 @@ class MainWindow(QMainWindow):
         self._letter_q: deque[str] = deque()
         self._letter_inflight: set[str] = set()
         self._letter_n = 0
+        self._letter_done = 0
+        self._letter_total = 0
         self._letter_beep_url = ""
+        self._want_clear_check = False
+        self._cc_boot_tries = 0
         self._win_hotkey = None
 
         self._build_ui()
@@ -137,6 +149,26 @@ class MainWindow(QMainWindow):
             self.append_log(msg)
         except Exception as e:
             self.append_log(f"Chrome: {e}")
+        if self._want_clear_check:
+            QTimer.singleShot(4000, self._boot_clear_check)
+
+    def _boot_clear_check(self) -> None:
+        if self._busy_search:
+            return
+        self._cc_boot_tries += 1
+        ready = False
+        try:
+            msg = check_connection_fast()
+            ready = "Связь OK" in str(msg)
+            if not ready:
+                self.append_log(f"Clear Check ждёт Chrome: {msg}")
+        except Exception as e:
+            self.append_log(f"Clear Check Chrome: {e}")
+        if ready or self._cc_boot_tries >= 15:
+            self.append_log("Автозапуск Clear Check…")
+            self.run_clear_check()
+            return
+        QTimer.singleShot(1500, self._boot_clear_check)
 
     def _rearm_timers(self):
         search_ms = max(1, int(self.cfg.get("search_interval_min") or 15)) * 60 * 1000
@@ -182,6 +214,7 @@ class MainWindow(QMainWindow):
     def enqueue_letters(self, urls, *, front: bool = False, beep_url: str = "") -> None:
         if beep_url:
             self._letter_beep_url = beep_url
+        idle = not self._letter_q and not self._letter_inflight
         for u in urls or []:
             if not u or u in self._letter_inflight:
                 continue
@@ -195,20 +228,43 @@ class MainWindow(QMainWindow):
             else:
                 self._letter_q.append(u)
         n = len(self._letter_q) + len(self._letter_inflight)
+        if idle:
+            self._letter_done = 0
+            self._letter_total = n
+        else:
+            self._letter_total = max(
+                self._letter_total, self._letter_done + n
+            )
         if n:
-            self._set_activity(busy=True, line=f"Письма Cursor в очереди: {n}")
+            self._set_letter_activity("очередь")
+            self.refresh_queue_list()
         self._letter_pump()
+
+    def _letter_title(self, url: str, result=None) -> str:
+        if result and (result or {}).get("title"):
+            return str(result.get("title") or "")[:42]
+        v = next((x for x in self.store.items if x.url == url), None)
+        return ((v.title if v else "") or "")[:42]
+
+    def _set_letter_activity(self, title: str, *, ok: bool | None = None, done: bool = False) -> None:
+        total = max(1, int(self._letter_total or 0))
+        cur = int(self._letter_done or 0)
+        mark = "OK" if ok is True else ("FAIL" if ok is False else "…")
+        line = f"Письма Cursor: [{cur}/{total}] {title} → {mark}"
+        left = len(self._letter_q) + self._letter_n
+        self._set_activity(busy=bool(left) and not done, line=line)
 
     def _letter_pump(self) -> None:
         max_w = max(1, min(int(self.cfg.get("cursor_letter_workers") or 5), 6))
+        started = False
         while self._letter_n < max_w and self._letter_q:
             url = self._letter_q.popleft()
             self._letter_inflight.add(url)
             self._letter_n += 1
-            v = next((x for x in self.store.items if x.url == url), None)
-            title = ((v.title if v else "") or "")[:42]
-            self._set_activity(busy=True, line=f"Письмо: {title}…")
-            self.append_log(f"Письмо Cursor → «{title}»")
+            started = True
+            title = self._letter_title(url)
+            self._set_letter_activity(title)
+            self.append_log(f"Письмо Cursor [{self._letter_done}/{self._letter_total}] → «{title}»")
             timeout = int(self.cfg.get("cover_letter_timeout_sec") or 90) + 20
             self._run_bg(
                 lambda u=url: generate_one_letter(self.store, u),
@@ -221,16 +277,21 @@ class MainWindow(QMainWindow):
                     u, {"ok": False, "error": "timeout", "url": u}
                 ),
             )
+        if started:
+            self.refresh_queue_list()
 
     def _on_letter_one(self, url: str, result) -> None:
         late = url not in self._letter_inflight
         if not late:
             self._letter_inflight.discard(url)
             self._letter_n = max(0, self._letter_n - 1)
+            self._letter_done += 1
         ok = bool((result or {}).get("ok"))
-        title = str((result or {}).get("title") or "")[:42]
+        title = self._letter_title(url, result)
         if ok:
-            self.append_log(f"Письмо готово: {title}")
+            self.append_log(
+                f"Письмо готово [{self._letter_done}/{self._letter_total}]: {title}"
+            )
             self.refresh_queue_list()
             target = self._letter_beep_url or self.store.active_url or self.selected_url()
             if url == target:
@@ -244,13 +305,28 @@ class MainWindow(QMainWindow):
             elif self._selected_url == url:
                 self._push_detail(url)
         elif not late:
-            self.append_log("Письмо FAIL: " + str((result or {}).get("error") or "")[:180])
+            v = next((x for x in self.store.items if x.url == url), None)
+            if v and (v.letter_source or "") != "cursor":
+                v.letter_source = "fail"
+                try:
+                    self.store.save()
+                except Exception:
+                    pass
+            self.append_log(
+                "Письмо FAIL "
+                f"[{self._letter_done}/{self._letter_total}]: "
+                + str((result or {}).get("error") or "")[:180]
+            )
+            self.refresh_queue_list()
         left = len(self._letter_q) + self._letter_n
+        self._set_letter_activity(title, ok=ok, done=not left)
         if left:
-            self._set_activity(busy=True, line=f"Письма: ещё {left}")
             self._letter_pump()
         else:
-            self._set_activity(busy=False, line="Письма: очередь пуста")
+            self._set_activity(
+                busy=False,
+                line=f"Письма Cursor: [{self._letter_done}/{self._letter_total}] готово",
+            )
 
     def _build_ui(self):
         self._selected_url = ""
@@ -376,7 +452,16 @@ class MainWindow(QMainWindow):
             {"label": "Employment", "value": "Full-time"},
             {"label": "Salary", "value": v.salary or "?"},
             {"label": "Status", "value": v.status or "?"},
-            {"label": "Letter", "value": v.letter_source or "?"},
+            {
+                "label": "Letter",
+                "value": letter_fact(
+                    letter_runtime_status(
+                        v,
+                        inflight=self._letter_inflight,
+                        queued=set(self._letter_q),
+                    )
+                ),
+            },
         ]
         self.web.push(
             "detail",
@@ -389,6 +474,11 @@ class MainWindow(QMainWindow):
                 "facts": facts,
                 "skills": skills,
                 "letter": v.cover_letter or "",
+                "letterStatus": letter_runtime_status(
+                    v,
+                    inflight=self._letter_inflight,
+                    queued=set(self._letter_q),
+                ),
             },
         )
 
@@ -559,6 +649,11 @@ class MainWindow(QMainWindow):
                 meta_bits.append(str(v.published))
             elif v.found_at:
                 meta_bits.append(str(v.found_at)[:16].replace("T", " "))
+            letter_st = letter_runtime_status(
+                v,
+                inflight=self._letter_inflight,
+                queued=set(self._letter_q),
+            )
             items.append(
                 {
                     "url": v.url,
@@ -568,6 +663,8 @@ class MainWindow(QMainWindow):
                     "score": int(v.score or 0),
                     "kind": kind,
                     "pill": pill_label(kind, v),
+                    "letter": letter_chip(letter_st),
+                    "letterStatus": letter_st,
                     "blue": is_blue(v),
                 }
             )
@@ -1180,5 +1277,8 @@ def run():
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
     win = MainWindow()
+    if "--clear-check" in sys.argv:
+        win._want_clear_check = True
+        win.append_log("Флаг --clear-check: Clear Check после старта Chrome")
     win.showMaximized()
     return app.exec()

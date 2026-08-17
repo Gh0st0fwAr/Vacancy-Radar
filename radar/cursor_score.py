@@ -163,15 +163,32 @@ def _via_cursor(
             except OSError:
                 pass
 
-        raw = (proc.stdout or "").strip()
-        if not raw:
-            return None
-        data = json.loads(raw)
-        if not isinstance(data, dict):
-            return None
-        return data
-    except Exception:
-        return None
+        parsed = _parse_bridge_out(proc.stdout or "", proc.stderr or "")
+        return parsed
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:240], "elapsed_ms": 0}
+
+
+def _parse_bridge_out(stdout: str, stderr: str) -> dict:
+    raw = (stdout or "").strip()
+    if raw:
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            start = raw.find("{")
+            end = raw.rfind("}")
+            if start >= 0 and end > start:
+                try:
+                    data = json.loads(raw[start : end + 1])
+                    if isinstance(data, dict):
+                        return data
+                except Exception:
+                    pass
+    err_lines = [ln.strip() for ln in (stderr or "").splitlines() if ln.strip()]
+    err = (err_lines[-1] if err_lines else "")[:240]
+    return {"ok": False, "error": err or "empty-bridge-stdout", "elapsed_ms": 0}
 
 
 def _append_metric(row: dict) -> None:
@@ -260,5 +277,11 @@ def score_many_parallel(
             if on_progress:
                 title = (row.get("title") or "")[:50]
                 src = (row.get("score_meta") or {}).get("source") or "?"
-                on_progress(f"  [{done_n}/{len(items)}] {title} → {row.get('score')}% ({src})")
+                extra = ""
+                if src in ("cursor_failed", "cursor_unavailable"):
+                    reasons = row.get("reasons") or []
+                    hint = next((r for r in reasons if r not in ("cursor-score-failed", "cursor-unavailable")), "")
+                    if hint:
+                        extra = f" {str(hint)[:80]}"
+                on_progress(f"  [{done_n}/{len(items)}] {title} → {row.get('score')}% ({src}){extra}")
     return [r for r in ordered if r is not None]
