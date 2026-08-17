@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 import threading
 import time
-from pathlib import Path
 from typing import Callable, Dict, List, Optional
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -16,7 +15,7 @@ from .cover_letter import make_cover_letter
 from .queue_store import QueueStore, Vacancy, norm_url
 from .refusal import text_looks_like_refusal
 from .cursor_score import score_many_parallel, scoring_mode
-from .config import EXCLUDE_FILE, ROUNDS_GLOB, load_config, load_json
+from .config import EXCLUDE_FILE, ROUNDS_GLOB, load_config, load_json, project_path
 from .metrics_log import append_event
 
 
@@ -122,8 +121,7 @@ JS_VACANCY_FULL = r"""
 def load_excludes(cfg: Optional[dict] = None) -> set:
     cfg = cfg or load_config()
     out = set()
-    raw_path = (cfg.get("exclude_file") or "").strip()
-    path = Path(raw_path) if raw_path else EXCLUDE_FILE
+    path = project_path(cfg.get("exclude_file") or "", EXCLUDE_FILE)
     data = load_json(path, {})
     for u in data.get("exclude_links") or []:
         out.add(norm_url(u))

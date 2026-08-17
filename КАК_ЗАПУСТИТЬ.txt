@@ -1,0 +1,21 @@
+VacancyRadar (Настя) — запуск из этой папки
+
+На компьютере нужно:
+- Windows
+- Python 3.9+
+- Google Chrome
+
+1. Откройте эту папку в cmd или PowerShell.
+2. pip install -r requirements.txt
+3. Start VacancyRadar.bat
+   или: python main.py
+
+Профиль поиска и писем уже в data/config.json.
+Резюме: data/nstyacv.pdf
+Исключения дублей: data/_vacancy_exclude.json
+
+После старта: вкладка Stats → Open HH / Chrome login → войдите в hh.ru
+в открывшемся Chrome Radar. Затем Check connection.
+
+Cursor и npm не нужны (режим python_only).
+Папку chrome_profile/ не копируйте другому человеку — там сессия hh.ru.

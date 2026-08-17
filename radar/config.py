@@ -9,8 +9,19 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 ASSETS = ROOT / "assets"
 CHROME_PROFILE = ROOT / "chrome_profile"
-EXCLUDE_FILE = Path(r"G:\Резюме и проекты\_vacancy_exclude.json")
-ROUNDS_GLOB = Path(r"G:\Резюме и проекты")
+EXCLUDE_FILE = DATA / "_vacancy_exclude.json"
+ROUNDS_GLOB = ROOT
+
+
+def project_path(raw: str, fallback: Path | None = None) -> Path:
+    """Resolve a config path against the project root (zip / other machine)."""
+    s = (raw or "").strip()
+    if not s:
+        return fallback if fallback is not None else EXCLUDE_FILE
+    p = Path(s)
+    if p.is_absolute():
+        return p
+    return (ROOT / p).resolve()
 
 DATA.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
@@ -70,7 +81,7 @@ DEFAULT_CONFIG = {
     "ui_zoom": 1.35,
     "autostart_enabled": False,
     "candidate_role": "",
-    "resume_path": "",
+    "resume_path": "data/nstyacv.pdf",
     "portfolio_url": "",
     "github_url": "",
     "telegram": "",
@@ -86,7 +97,7 @@ DEFAULT_CONFIG = {
     "cover_letter_closing": "",
     "require_remote": True,
     "skip_level_heuristic": False,
-    "exclude_file": "",
+    "exclude_file": "data/_vacancy_exclude.json",
     "score_title": {},
     "score_body": {},
     "score_skills": {},

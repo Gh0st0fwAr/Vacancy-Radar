@@ -1,10 +1,12 @@
 # Secrets & local runtime
-data/config.json
+# data/config.json is tracked on nastya-python (candidate profile for a standalone clone).
 data/queue.json
 data/seen.json
 data/stats.json
 data/negotiations.json
 data/radar.log
+data/radar_metrics.jsonl
+data/stats_watcher.txt
 data/*.bak
 data/cursor_score_metrics.jsonl
 data/cursor_score_bench.json
@@ -16,7 +18,7 @@ _fix_*.py
 _scan_*.py
 _rewrite_*.py
 
-# Chrome profile (cookies / session)
+# Chrome profile (cookies / HH session — never ship)
 chrome_profile/
 
 # Python / Node
