@@ -9,8 +9,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 ASSETS = ROOT / "assets"
 CHROME_PROFILE = ROOT / "chrome_profile"
-EXCLUDE_FILE = Path(r"G:\Лёха уроки\_vacancy_exclude.json")
-ROUNDS_GLOB = Path(r"G:\Лёха уроки")
+EXCLUDE_FILE = Path(r"G:\Резюме и проекты\_vacancy_exclude.json")
+ROUNDS_GLOB = Path(r"G:\Резюме и проекты")
 
 DATA.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
@@ -46,6 +46,7 @@ DEFAULT_CONFIG = {
     ),
     "salary_target": 160000,
     "salary_floor": 120000,
+    "salary_good": 140000,
     # Скоринг по полному тексту страницы вакансии (не по 800 символам карточки SERP).
     "deep_score": True,
     "vacancy_settle_sec": 1.1,

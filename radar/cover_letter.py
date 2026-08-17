@@ -10,6 +10,7 @@ import tempfile
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from .config import ROOT, load_config
+from .candidate_profile import build_candidate_block, links_dict, load_scoring_context
 from .metrics_log import append_event
 
 BRIDGE = ROOT / "cursor_bridge" / "generate_letter.mjs"
@@ -126,6 +127,7 @@ def _via_cursor(
     if not key:
         return None, meta
 
+    links = links_dict()
     payload = {
         "title": title,
         "company": company,
@@ -136,6 +138,11 @@ def _via_cursor(
         "model": cfg.get("cursor_model") or "composer-2.5",
         "cwd": str(RULES_CWD),
         "returnMeta": True,
+        "candidateProfile": build_candidate_block(),
+        "scoringRules": load_scoring_context(),
+        "portfolioUrl": links["portfolioUrl"],
+        "githubUrl": links["githubUrl"],
+        "resumePath": links.get("resumePath") or "",
     }
     timeout = int(cfg.get("cover_letter_timeout_sec") or 90)
 

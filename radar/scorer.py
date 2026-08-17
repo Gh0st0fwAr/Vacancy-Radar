@@ -19,14 +19,20 @@ def score_vacancy(
     schedule: str = "",
     experience: str = "",
     salary_floor: int = 120000,
+    salary_good: int = 140000,
     gate_threshold: int = 65,
 ) -> Tuple[int, List[str], bool]:
     """
     Returns (score 0-100, reasons, accept_candidate).
     Non-remote without remote option -> reject (score 0).
     gate_threshold: min score after a gated bonus (same as queue score_threshold).
+    Salary: >=salary_good → +20; >=salary_floor → +17; missing → +20 only if score+20 >= 70.
     """
     gate = int(gate_threshold or 65)
+    floor = int(salary_floor or 120000)
+    good = int(salary_good or 140000)
+    if good < floor:
+        good = floor
     blob = _text(title, snippet, schedule, experience, salary_text)
     reasons: List[str] = []
     score = 0
@@ -134,9 +140,12 @@ def score_vacancy(
     negotiable = sal is None or is_salary_negotiable(salary_text)
     salary_missing = bool(negotiable and sal is None)
     if sal is not None:
-        if sal >= salary_floor:
-            score += 8
-            reasons.append(f"+8 ЗП≥{salary_floor}")
+        if sal >= good:
+            score += 20
+            reasons.append(f"+20 ЗП≥{good}")
+        elif sal >= floor:
+            score += 17
+            reasons.append(f"+17 ЗП≥{floor}")
         else:
             score -= 12
             reasons.append(f"-12 ЗП низкая (~{sal})")
@@ -193,12 +202,20 @@ def score_vacancy(
     elif "junior" in blob or "джун" in blob:
         reasons.append("Junior/опыт <3 — без штрафа (рассматриваем)")
 
+    # Missing salary: +20 only if that pushes total to 70%+
+    salary_missing_gate = 70
+    salary_missing_bonus = 20
     if salary_missing:
-        if score + 20 >= gate:
-            score += 20
-            reasons.append(f"+20 ЗП не указана (дотягивает до {gate}+)")
+        if score + salary_missing_bonus >= salary_missing_gate:
+            score += salary_missing_bonus
+            reasons.append(
+                f"+{salary_missing_bonus} ЗП не указана (дотягивает до {salary_missing_gate}+)"
+            )
         else:
-            reasons.append(f"ЗП не указана / обсуждаемо (без +20: даже с бонусом < {gate})")
+            reasons.append(
+                f"ЗП не указана / обсуждаемо (без +{salary_missing_bonus}: "
+                f"даже с бонусом < {salary_missing_gate})"
+            )
 
     score = max(0, min(100, score))
     return score, reasons, True

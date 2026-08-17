@@ -40,8 +40,8 @@ class TestScoreForSearchRules:
         assert any("Vue" in r or "remote" in r for r in reasons)
 
 
-class TestScoreForSearchCursorFallback:
-    def test_cursor_falls_back_without_key(self):
+class TestScoreForSearchCursorNoRulesFallback:
+    def test_cursor_mode_without_key_does_not_use_rules(self):
         cfg = {
             "scoring_mode": "cursor",
             "score_threshold": 65,
@@ -54,9 +54,10 @@ class TestScoreForSearchCursorFallback:
             schedule="remote",
             cfg=cfg,
         )
-        assert meta["source"] == "rules_fallback"
-        assert "fallback:rules" in reasons
-        assert isinstance(sc, int)
+        assert meta["source"] == "cursor_unavailable"
+        assert ok is False
+        assert sc == 0
+        assert "cursor-unavailable" in reasons
 
 
 class TestCursorBridgeParse:

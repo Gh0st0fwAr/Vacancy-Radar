@@ -181,7 +181,8 @@ def search_once(store: QueueStore) -> Dict:
                     if store.known(link):
                         skipped += 1
                         continue
-                    # HH SERP "visited" (opened in browser) — remember, do not open/score/letter
+                    # HH SERP "visited" (opened in Chrome) — remember, do NOT score again
+                    # (иначе Cursor SDK сжигает токены на одни и те же карточки каждый цикл).
                     if c.get("visited"):
                         store.remember(link)
                         skipped += 1

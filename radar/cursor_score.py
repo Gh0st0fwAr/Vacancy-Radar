@@ -9,7 +9,7 @@ import tempfile
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from .candidate_profile import build_candidate_block, links_dict
+from .candidate_profile import build_candidate_block, links_dict, load_scoring_context
 from .config import ROOT, load_config
 from .cover_letter import _api_key
 from .metrics_log import append_event
@@ -46,6 +46,7 @@ def score_for_search(
     cfg = cfg or load_config()
     threshold = int(cfg.get("score_threshold") or 65)
     floor = int(cfg.get("salary_floor") or 120000)
+    good = int(cfg.get("salary_good") or 140000)
     mode = scoring_mode(cfg)
 
     if mode == "cursor" and _api_key(cfg) and BRIDGE.exists():
@@ -84,7 +85,44 @@ def score_for_search(
             )
             return score, reasons, accept_ok, meta
 
-    # rules path (explicit mode or cursor fallback)
+        # Cursor mode + checkbox: do NOT silently score with Python rules.
+        meta = {
+            "source": "cursor_failed",
+            "elapsed_ms": int((cur or {}).get("elapsed_ms") or 0) if isinstance(cur, dict) else 0,
+            "usage": None,
+        }
+        reasons = ["cursor-score-failed"]
+        if isinstance(cur, dict) and cur.get("error"):
+            reasons.append(str(cur.get("error"))[:120])
+        _append_metric(
+            {
+                "ts": time.time(),
+                "title": (title or "")[:120],
+                "score": 0,
+                "accept": False,
+                "source": "cursor_failed",
+                "elapsed_ms": meta["elapsed_ms"],
+                "usage": None,
+            }
+        )
+        return 0, reasons, False, meta
+
+    if mode == "cursor" and not (_api_key(cfg) and BRIDGE.exists()):
+        meta = {"source": "cursor_unavailable", "elapsed_ms": 0, "usage": None}
+        _append_metric(
+            {
+                "ts": time.time(),
+                "title": (title or "")[:120],
+                "score": 0,
+                "accept": False,
+                "source": "cursor_unavailable",
+                "elapsed_ms": 0,
+                "usage": None,
+            }
+        )
+        return 0, ["cursor-unavailable"], False, meta
+
+    # Explicit rules mode only
     t0 = time.perf_counter()
     score, reasons, accept_ok = score_vacancy_rules(
         title,
@@ -93,16 +131,15 @@ def score_for_search(
         schedule=schedule,
         experience=experience,
         salary_floor=floor,
+        salary_good=good,
         gate_threshold=threshold,
     )
     elapsed = int((time.perf_counter() - t0) * 1000)
     meta = {
-        "source": "rules" if mode == "rules" else "rules_fallback",
+        "source": "rules",
         "elapsed_ms": elapsed,
         "usage": None,
     }
-    if mode == "cursor":
-        reasons = list(reasons) + ["fallback:rules"]
     _append_metric(
         {
             "ts": time.time(),
@@ -144,8 +181,10 @@ def _via_cursor(
         "model": cfg.get("cursor_model") or "composer-2.5",
         "cwd": str(RULES_CWD),
         "candidateProfile": build_candidate_block(),
+        "scoringRules": load_scoring_context(),
         "portfolioUrl": links["portfolioUrl"],
         "githubUrl": links["githubUrl"],
+        "resumePath": links.get("resumePath") or "",
     }
     timeout = int(cfg.get("cursor_score_timeout_sec") or 120)
     try:

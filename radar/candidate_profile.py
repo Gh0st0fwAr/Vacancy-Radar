@@ -3,6 +3,8 @@
 
 Canonical resume file: cvddv.pdf (next to VacancyRadar folder).
 NOT resume.txt / rezume.txt.
+
+Shared rubric with IDE Cursor: cursor_bridge/SCORING_CONTEXT.md
 """
 from __future__ import annotations
 
@@ -11,7 +13,9 @@ from pathlib import Path
 
 # VacancyRadar/radar/this file -> parents[1]=VacancyRadar, parents[2]=workspace root
 _WORKSPACE = Path(__file__).resolve().parents[2]
+_VR_ROOT = Path(__file__).resolve().parents[1]
 RESUME_PDF = _WORKSPACE / "cvddv.pdf"
+SCORING_CONTEXT_PATH = _VR_ROOT / "cursor_bridge" / "SCORING_CONTEXT.md"
 
 GITHUB_URL = "https://github.com/Gh0st0fwAr"
 PORTFOLIO_URL = "https://gh0st0fwar.github.io/"
@@ -65,28 +69,50 @@ def load_resume_text(max_chars: int = 14000) -> str:
     return text
 
 
+def load_scoring_context() -> str:
+    """Shared IDE + SDK scoring rubric (must stay in sync with SCORING_CONTEXT.md)."""
+    if SCORING_CONTEXT_PATH.exists():
+        try:
+            return SCORING_CONTEXT_PATH.read_text(encoding="utf-8").strip()
+        except Exception:
+            pass
+    return (
+        f"Resume: cvddv.pdf. Portfolio: {PORTFOLIO_URL}. GitHub: {GITHUB_URL}. "
+        "Remote only. Vue strong; Nuxt Junior. Salary: >=140k strong, >=120k ok, "
+        "missing OK if fit ~70+."
+    )
+
+
 def links_dict() -> dict[str, str]:
     """Canonical links for Cursor SDK scoring payload."""
     return {
         "portfolioUrl": PORTFOLIO_URL,
         "githubUrl": GITHUB_URL,
+        "resumePath": str(RESUME_PDF),
     }
 
 
 def build_candidate_block() -> str:
     resume = load_resume_text()
+    rubric = load_scoring_context()
     return (
         "=== CANDIDATE (trust this block; score vacancy FIT against it) ===\n"
         "Resume source: cvddv.pdf (authoritative)\n"
-        f"Portfolio (demos / live sites - use as context): {PORTFOLIO_URL}\n"
-        f"GitHub (profile + projects - use as context): {GITHUB_URL}\n"
+        f"Resume file path: {RESUME_PDF}\n"
+        f"Portfolio (live demos — score FIT against this too): {PORTFOLIO_URL}\n"
+        f"Portfolio (same site, alternate casing): https://Gh0st0fwAr.github.io/\n"
+        f"GitHub (profile + projects): {GITHUB_URL}\n"
         "\n"
         "IMPORTANT:\n"
-        "- Portfolio and GitHub URLs above ARE part of scoring context (passed explicitly).\n"
-        "- Do NOT open/crawl/clone the Portfolio SOURCE repository; it was partly AI-generated and\n"
-        "  does not objectively prove skills. Demo URLs and GitHub project names are OK as evidence of direction.\n"
-        "- Do NOT fail scoring because you cannot fetch URLs online.\n"
-        "- Prefer this resume text + NMS excerpt + these links over any web fetch.\n"
+        "- Portfolio URLs and GitHub ARE scoring context (Vue demos / repos direction).\n"
+        "- Full resume text from cvddv.pdf is embedded below — treat it as read.\n"
+        "- Do NOT crawl/clone portfolio SOURCE repo as proof of skill; use demos + GitHub names.\n"
+        "- Do NOT fail scoring because URLs cannot be fetched online.\n"
+        "- Judge FIT yourself from this context + vacancy text. Do NOT apply Python rules-engine point formulas.\n"
+        "\n"
+        "=== SCORING GUIDANCE (soft; not a point spreadsheet) ===\n"
+        f"{rubric}\n"
+        "=== END GUIDANCE ===\n"
         "\n"
         "FULL RESUME (from cvddv.pdf):\n"
         f"{resume}\n"

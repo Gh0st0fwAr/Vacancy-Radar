@@ -29,13 +29,16 @@ def test_candidate_block_has_resume_and_links():
     block = build_candidate_block()
     assert "cvddv.pdf" in block
     assert "gh0st0fwar.github.io" in block
+    assert "Gh0st0fwAr.github.io" in block
     assert "Gh0st0fwAr" in block
+    assert "Do NOT apply Python rules-engine" in block or "point formulas" in block
 
 
 def test_links_dict_for_sdk_payload():
     links = links_dict()
     assert links["portfolioUrl"] == PORTFOLIO_URL == "https://gh0st0fwar.github.io/"
     assert links["githubUrl"] == GITHUB_URL == "https://github.com/Gh0st0fwAr"
+    assert links["resumePath"].endswith("cvddv.pdf")
 
 
 def test_via_cursor_payload_includes_links():
@@ -78,5 +81,8 @@ def test_via_cursor_payload_includes_links():
     assert out and out.get("ok")
     assert captured["portfolioUrl"] == "https://gh0st0fwar.github.io/"
     assert captured["githubUrl"] == "https://github.com/Gh0st0fwAr"
+    assert captured.get("resumePath", "").endswith("cvddv.pdf")
     assert "candidateProfile" in captured
+    assert "scoringRules" in captured
     assert "gh0st0fwar.github.io" in captured["candidateProfile"]
+    assert "cvddv.pdf" in captured["candidateProfile"]
