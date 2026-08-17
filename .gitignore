@@ -42,8 +42,5 @@ _ui_out.txt
 
 data/_dump_*.json
 
-# Personal tester questionnaires + resumes (created by the HTML form)
-анкеты и резюме/Анкета_*/
-
 _boot_err.txt
 *.bak_widgets
