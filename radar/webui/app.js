@@ -286,8 +286,14 @@
     document.getElementById("opt-autostart").checked = !!s.autostart_enabled;
     const scoring = document.getElementById("opt-scoring");
     if (scoring) {
-      const m = s.scoring_mode || "hybrid";
-      scoring.value = m === "rules" || m === "cursor" ? m : "hybrid";
+      if (s.python_only) {
+        scoring.value = "rules";
+        scoring.disabled = true;
+      } else {
+        scoring.disabled = false;
+        const m = s.scoring_mode || "rules";
+        scoring.value = m === "cursor" || m === "hybrid" ? m : "rules";
+      }
     }
     const sel = document.getElementById("opt-theme");
     if (sel && s.themes && !sel.dataset.filled) {

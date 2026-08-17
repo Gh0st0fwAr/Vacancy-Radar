@@ -9,7 +9,7 @@ from radar.scorer import score_vacancy
 
 def _cfg():
     return json.loads(
-        (Path(__file__).resolve().parents[1] / "data" / "config.json").read_text(
+        (Path(__file__).resolve().parents[1] / "data" / "config.example.json").read_text(
             encoding="utf-8"
         )
     )

@@ -14,10 +14,57 @@ from .candidate_profile import build_candidate_block, links_dict, load_scoring_c
 from .config import ROOT, load_config
 from .cover_letter import _api_key
 from .metrics_log import append_event
+from .scorer import score_vacancy as score_vacancy_rules
 
 BRIDGE = ROOT / "cursor_bridge" / "score_vacancy.mjs"
 RULES_CWD = ROOT.parent
 METRICS_PATH = ROOT / "data" / "cursor_score_metrics.jsonl"
+
+
+def scoring_mode(cfg: Optional[dict] = None) -> str:
+    cfg = cfg or load_config()
+    if bool(cfg.get("python_only", False)):
+        return "rules"
+    mode = str(cfg.get("scoring_mode") or "cursor").strip().lower()
+    return mode if mode in ("cursor", "rules", "hybrid") else "cursor"
+
+
+def _rules_score(
+    *,
+    title: str,
+    snippet: str,
+    salary_text: str,
+    schedule: str,
+    experience: str,
+    cfg: dict,
+    threshold: int,
+) -> Tuple[int, List[str], bool, Dict[str, Any]]:
+    t0 = time.perf_counter()
+    floor = int(cfg.get("salary_floor") or 60000)
+    score, reasons, accept_ok = score_vacancy_rules(
+        title,
+        snippet,
+        salary_text=salary_text,
+        schedule=schedule,
+        experience=experience,
+        salary_floor=floor,
+        gate_threshold=threshold,
+        profile=cfg,
+    )
+    elapsed = int((time.perf_counter() - t0) * 1000)
+    meta = {"source": "rules", "elapsed_ms": elapsed, "usage": None}
+    _append_metric(
+        {
+            "ts": time.time(),
+            "title": (title or "")[:120],
+            "score": score,
+            "accept": accept_ok,
+            "source": "rules",
+            "elapsed_ms": elapsed,
+            "usage": None,
+        }
+    )
+    return score, list(reasons or []), bool(accept_ok), meta
 
 
 def score_for_search(
@@ -31,11 +78,22 @@ def score_for_search(
     cfg: Optional[dict] = None,
 ) -> Tuple[int, List[str], bool, Dict[str, Any]]:
     """
-    Cursor-SDK-only scoring.
+    python_only / scoring_mode=rules → local profile scorer.
+    Otherwise Cursor SDK.
     Returns (score, reasons, accept_ok, meta).
     """
     cfg = cfg or load_config()
     threshold = int(cfg.get("score_threshold") or 70)
+    if scoring_mode(cfg) == "rules":
+        return _rules_score(
+            title=title,
+            snippet=snippet,
+            salary_text=salary_text,
+            schedule=schedule,
+            experience=experience,
+            cfg=cfg,
+            threshold=threshold,
+        )
 
     if not (_api_key(cfg) and BRIDGE.exists()):
         meta = {"source": "cursor_unavailable", "elapsed_ms": 0, "usage": None}

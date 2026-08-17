@@ -378,7 +378,8 @@ class MainWindow(QMainWindow):
                 "autostart_enabled": bool(self.cfg.get("autostart_enabled", False))
                 or is_autostart_enabled(),
                 "ui_theme": str(self.cfg.get("ui_theme") or "04"),
-                "scoring_mode": str(self.cfg.get("scoring_mode") or "cursor"),
+                "scoring_mode": str(self.cfg.get("scoring_mode") or "rules"),
+                "python_only": bool(self.cfg.get("python_only", True)),
                 "themes": [{"id": t, "label": THEME_LABELS.get(t, t)} for t in THEME_IDS],
             },
         )
@@ -405,9 +406,9 @@ class MainWindow(QMainWindow):
             self.cfg["dnd"] = bool(p.get("dnd"))
         if "minimize_previous" in p:
             self.cfg["minimize_previous"] = bool(p.get("minimize_previous"))
-        if "scoring_mode" in p:
-            mode = str(p.get("scoring_mode") or "cursor").strip().lower()
-            self.cfg["scoring_mode"] = mode if mode in ("cursor", "rules") else "cursor"
+        if "scoring_mode" in p and not bool(self.cfg.get("python_only", False)):
+            mode = str(p.get("scoring_mode") or "rules").strip().lower()
+            self.cfg["scoring_mode"] = mode if mode in ("cursor", "rules", "hybrid") else "rules"
             self.append_log("Scoring mode: " + str(self.cfg["scoring_mode"]))
         if "autostart_enabled" in p:
             want = bool(p.get("autostart_enabled"))

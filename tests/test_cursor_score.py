@@ -67,7 +67,7 @@ class TestCursorViaMock:
         assert ok is True
         assert meta["source"] == "cursor"
         assert meta["usage"]["totalTokens"] == 1080
-        assert "Vue 3 fit" in reasons
+        assert "Linux fit" in reasons
 
     def test_cursor_below_threshold_not_accepted(self):
         cfg = {
@@ -114,3 +114,27 @@ class TestCursorViaMock:
         assert sc == 0
         assert ok is False
         assert meta["source"] == "cursor_failed"
+
+
+class TestPythonOnlyRules:
+    def test_python_only_uses_profile_scorer(self):
+        cfg = {
+            "python_only": True,
+            "scoring_mode": "cursor",
+            "cursor_api_key": "test-key",
+            "score_threshold": 80,
+            "salary_floor": 60000,
+            "must_have_keywords": ["Linux", "support"],
+            "search_keywords": ["Linux", "L1", "Python"],
+            "hard_reject_keywords": ["1С"],
+        }
+        sc, reasons, ok, meta = score_for_search(
+            title="Linux L1 technical support",
+            snippet="Linux support L1 Python remote Junior",
+            schedule="remote",
+            cfg=cfg,
+        )
+        assert meta["source"] == "rules"
+        assert ok is True
+        assert sc >= 80
+

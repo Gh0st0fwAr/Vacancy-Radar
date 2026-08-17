@@ -34,19 +34,16 @@ DEFAULT_CONFIG = {
     "chrome_debug_port": 9222,
     "hh_search_url": (
         "https://hh.ru/search/vacancy?"
-        "text=Vue+OR+Vue2+OR+Vue3+OR+Nuxt+OR+TypeScript"
-        "+OR+Fullstack+OR+Full-stack+OR+%22Full+stack%22"
-        "+OR+%D0%A4%D1%83%D0%BB%D0%BB%D1%81%D1%82%D0%B5%D0%BA"
-        "+OR+%D0%A4%D1%83%D0%BB%D1%81%D1%82%D0%B5%D0%BA"
+        "text=KEYWORD"
         "&search_field=name&search_field=description"
         "&schedule=remote"
         "&order_by=publication_time"
         "&search_period=2"
         "&items_on_page=50"
     ),
-    "salary_target": 160000,
-    "salary_floor": 120000,
-    "salary_good": 140000,
+    "salary_target": 100000,
+    "salary_floor": 60000,
+    "salary_good": 80000,
     # Скоринг по полному тексту страницы вакансии (не по 800 символам карточки SERP).
     "deep_score": True,
     "vacancy_settle_sec": 1.1,
@@ -57,14 +54,13 @@ DEFAULT_CONFIG = {
     "exclude_manual_rounds": False,
     "clear_check_timeout_sec": 900,
     # Письма: на ветке pyrhon-only по умолчанию только локальный Python-шаблон.
-    "cover_letter_via_cursor": True,
+    "cover_letter_via_cursor": False,
     "cursor_api_key": "",
     "cursor_model": "composer-2.5",
     "cover_letter_timeout_sec": 90,
-    # Scoring: "hybrid" (rules prefilter → Cursor), "cursor" (SDK only), "rules" (local).
-    # python_only=true принудительно rules + локальные письма (без Cursor SDK).
-    "scoring_mode": "cursor",
-    "python_only": False,
+    # python-only branch: rules + local letters. Cursor stays in code but is off.
+    "scoring_mode": "rules",
+    "python_only": True,
     "cursor_score_timeout_sec": 120,
     "cursor_score_workers": 5,
     "cursor_letter_workers": 5,
@@ -73,6 +69,20 @@ DEFAULT_CONFIG = {
     # Embedded WebEngine zoom (1.0 = CSS px as-is). Not a Chrome browser tab.
     "ui_zoom": 1.35,
     "autostart_enabled": False,
+    "candidate_role": "",
+    "resume_path": "",
+    "portfolio_url": "",
+    "github_url": "",
+    "telegram": "",
+    "email": "",
+    "experience_years_label": "",
+    "candidate_pitch": "",
+    "search_keywords": [],
+    "exclude_keywords": [],
+    "must_have_keywords": [],
+    "nice_to_have_keywords": [],
+    "hard_reject_keywords": [],
+    "work_format_phrase": "Ищу удалённую работу",
 }
 
 

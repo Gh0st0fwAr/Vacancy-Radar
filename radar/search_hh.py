@@ -14,7 +14,7 @@ from .chrome_lock import chrome_exclusive
 from .cover_letter import make_cover_letter
 from .queue_store import QueueStore, Vacancy, norm_url
 from .refusal import text_looks_like_refusal
-from .cursor_score import score_many_parallel
+from .cursor_score import score_many_parallel, scoring_mode
 from .config import EXCLUDE_FILE, ROUNDS_GLOB, load_config, load_json
 from .metrics_log import append_event
 
@@ -321,8 +321,10 @@ def search_once(
                 session.close()
 
         if prepared:
-            workers = max(1, min(int(cfg.get("cursor_score_workers") or 5), 6))
-            prog(f"Cursor score: {len(prepared)} вакансий, workers={workers}…")
+            mode = scoring_mode(cfg)
+            workers = 1 if mode == "rules" else max(1, min(int(cfg.get("cursor_score_workers") or 5), 6))
+            label = "Rules score" if mode == "rules" else "Cursor score"
+            prog(f"{label}: {len(prepared)} вакансий, workers={workers}…")
             scored = score_many_parallel(prepared, cfg=cfg, workers=workers, on_progress=prog)
         else:
             scored = []

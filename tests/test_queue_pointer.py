@@ -132,18 +132,32 @@ class TestQueueStoreOpenNext:
 
 class TestCoverLetter:
     def test_local_letter_has_contacts_and_no_score_leak(self):
-        letter, src = make_cover_letter(
-            "Vue Developer",
-            company="TestCo",
-            description="Need Vue 3 TypeScript remote",
-            salary="160000",
-            reasons=["+25 Vue 3", "+20 remote", "Score: 87%", "Why:"],
-            force_local=True,
-        )
+        from unittest.mock import patch
+
+        cfg = {
+            "python_only": True,
+            "portfolio_url": "https://example.com/portfolio",
+            "telegram": "@tester",
+            "email": "tester@example.com",
+            "candidate_role": "Специалист",
+            "experience_years_label": "1",
+            "candidate_pitch": "Тестовый питч.",
+            "work_format_phrase": "Ищу удалённую работу",
+            "salary_target": 100000,
+        }
+        with patch("radar.cover_letter.load_config", return_value=cfg):
+            letter, src = make_cover_letter(
+                "Vue Developer",
+                company="TestCo",
+                description="Need Vue 3 TypeScript remote",
+                salary="160000",
+                reasons=["+25 Vue 3", "+20 remote", "Score: 87%", "Why:"],
+                force_local=True,
+            )
         assert src == "local"
-        assert "gh0st0fwar.github.io" in letter
-        assert "@daniil_virin" in letter
-        assert "39dv@mail.ru" in letter
+        assert "https://example.com/portfolio" in letter
+        assert "@tester" in letter
+        assert "tester@example.com" in letter
         assert "Vue Developer" in letter
         assert "Score:" not in letter
         assert "+25 Vue 3" not in letter

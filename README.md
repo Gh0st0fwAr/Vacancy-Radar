@@ -1,8 +1,10 @@
 # Vacancy Radar
 
+**Ветка `python-only`:** поиск и очередь как в основной версии (Clear Check, хоткей, статистика HH, статус писем), но скоринг — Python rules по анкете, письма — локальный шаблон. Cursor SDK выключен (`python_only=true`).
 
+Профиль тестировщика: заполните `анкета.txt`, перенесите ответы в `data/config.json` (старт с `data/config.example.json`). Резюме PDF и портфолио — путями в конфиге.
 
-Небольшая утилита для автоматического поиска вакансий на [hh.ru](https://hh.ru), скоринга под Vue/Nuxt-стек, очереди «горячих» карточек и подготовки сопроводительных писем. Репозиторий: [Gh0st0fwAr/Vacancy-Radar](https://github.com/Gh0st0fwAr/Vacancy-Radar).
+Небольшая утилита для автоматического поиска вакансий на [hh.ru](https://hh.ru), скоринга, очереди «горячих» карточек и подготовки сопроводительных писем. Репозиторий: [Gh0st0fwAr/Vacancy-Radar](https://github.com/Gh0st0fwAr/Vacancy-Radar).
 
 
 
