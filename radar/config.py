@@ -9,8 +9,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 ASSETS = ROOT / "assets"
 CHROME_PROFILE = ROOT / "chrome_profile"
-EXCLUDE_FILE = Path(r"G:\Лёха уроки\_vacancy_exclude.json")
-ROUNDS_GLOB = Path(r"G:\Лёха уроки")
+EXCLUDE_FILE = Path(r"G:\Резюме и проекты\_vacancy_exclude.json")
+ROUNDS_GLOB = Path(r"G:\Резюме и проекты")
 
 DATA.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
@@ -26,7 +26,7 @@ LOG_PATH = DATA / "radar.log"
 DEFAULT_CONFIG = {
     "search_interval_min": 15,
     "stats_interval_min": 15,
-    "score_threshold": 65,
+    "score_threshold": 70,
     "hotkey": "ctrl+alt+q",
     "sound_enabled": True,
     "dnd": False,
@@ -46,20 +46,28 @@ DEFAULT_CONFIG = {
     ),
     "salary_target": 160000,
     "salary_floor": 120000,
+    "salary_good": 140000,
     # Скоринг по полному тексту страницы вакансии (не по 800 символам карточки SERP).
     "deep_score": True,
     "vacancy_settle_sec": 1.1,
     "deep_score_max": 50,
+    "serp_max_pages": 6,
+    "clear_check_max_pages": 10,
+    "hybrid_rules_min": 60,
+    "exclude_manual_rounds": False,
+    "clear_check_timeout_sec": 900,
     # Письма: на ветке pyrhon-only по умолчанию только локальный Python-шаблон.
-    "cover_letter_via_cursor": False,
+    "cover_letter_via_cursor": True,
     "cursor_api_key": "",
     "cursor_model": "composer-2.5",
     "cover_letter_timeout_sec": 90,
-    # Scoring: "cursor" (SDK) or "rules" (local Python).
+    # Scoring: "hybrid" (rules prefilter → Cursor), "cursor" (SDK only), "rules" (local).
     # python_only=true принудительно rules + локальные письма (без Cursor SDK).
-    "scoring_mode": "rules",
-    "python_only": True,
+    "scoring_mode": "cursor",
+    "python_only": False,
     "cursor_score_timeout_sec": 120,
+    "cursor_score_workers": 5,
+    "cursor_letter_workers": 5,
     # UI: 04 = hybrid default (see references/04_*.png)
     "ui_theme": "04",
     # Embedded WebEngine zoom (1.0 = CSS px as-is). Not a Chrome browser tab.

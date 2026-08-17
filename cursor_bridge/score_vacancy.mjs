@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * VacancyRadar -> Cursor SDK vacancy scoring bridge.
- * Input JSON (argv[2] or stdin) -> stdout JSON score result.
+ * Scores by candidate CONTEXT (cvddv.pdf + portfolio + GitHub), not Python point rules.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -20,6 +20,15 @@ function readPayload() {
   return JSON.parse(raw);
 }
 
+function loadLocalRubric() {
+  const p = path.join(__dirname, "SCORING_CONTEXT.md");
+  try {
+    return fs.readFileSync(p, "utf8").trim();
+  } catch {
+    return "";
+  }
+}
+
 function buildPrompt(p) {
   const title = String(p.title || "").trim() || "Vacancy";
   const company = String(p.company || "").trim();
@@ -32,29 +41,37 @@ function buildPrompt(p) {
     String(p.portfolioUrl || "").trim() || "https://gh0st0fwar.github.io/";
   const githubUrl =
     String(p.githubUrl || "").trim() || "https://github.com/Gh0st0fwAr";
+  const resumePath = String(p.resumePath || "").trim() || "cvddv.pdf";
+  const guidance = String(p.scoringRules || "").trim() || loadLocalRubric();
   const candidate =
     String(p.candidateProfile || "").trim() ||
-    `=== CANDIDATE (fallback short) ===
-Middle frontend, 6+ years Vue 2/3 + TypeScript. Nuxt Junior. Remote only ~160k.
-Resume: cvddv.pdf (authoritative). Do NOT use resume.txt / ??????.txt.
+    `=== CANDIDATE (fallback) ===
+Resume: ${resumePath}. Portfolio: ${portfolioUrl} and https://Gh0st0fwAr.github.io/. GitHub: ${githubUrl}.
 === END ===`;
 
-  return `You score job vacancies for candidate Daniil Virin. Reply with JSON only.
+  return `You score job vacancies for Daniil Virin using CONTEXT judgment only.
+Do NOT apply a fixed Python-style point table (+20 remote, +25 Vue, etc.).
+Decide FIT from resume + portfolio demos + GitHub + vacancy text.
+Reply with JSON only.
 
-CANDIDATE LINKS (explicit context � treat as known profile links):
+CANONICAL CONTEXT LINKS:
+- Resume file: ${resumePath}
 - Portfolio: ${portfolioUrl}
+- Portfolio (same): https://Gh0st0fwAr.github.io/
 - GitHub: ${githubUrl}
-Use these as evidence of direction (Vue demos / repos). Do NOT crawl Portfolio source repo.
-Do NOT refuse scoring if you cannot open the URLs.
+Do not refuse scoring if URLs cannot be fetched — context is already embedded below.
+
+CALIBRATION (same as SCORING_CONTEXT.md; target ±6 vs agent gold set):
+- Resume header: Frontend Developer (Vue 3, TypeScript) · Middle.
+- Senior/Lead in vacancy title: minus 8–12, not zero if the core stack is Vue.
+- "Confident Nuxt" is a minus; Vue3+TS+remote can still score 74–86.
+- PHP/Laravel/Symfony/Nest as half the role: 60–68, accept=false even if Vue is in parentheses.
+- Do not inflate score to meet threshold. Senior Vue 74–78 is honest; 100 is wrong.
+- Vue-core remote SPA (LAB / IdaProject / 585GOLD class) stays high 80s. Keep them above 70.
 
 ${candidate}
 
-SCORING RULES:
-- Remote required (else accept=false, low score)
-- Vue / Vue2 / Vue3 / Nuxt / Fullstack+Vue or Node -> positive
-- Nuxt-only roles: accept is allowed if remote + TS/Vue ecosystem fits; do NOT score 0 just because Nuxt is junior-level � use mid scores (55-75) when fit is partial
-- Score vacancy FIT against resume (cvddv.pdf) + links + NMS facts above � not "can I fetch portfolio right now"
-- Pure React/Angular/Next without Vue -> usually reject
+${guidance ? `GUIDANCE:\n${guidance}\n` : ""}
 
 VACANCY:
 - Title: ${title}
@@ -71,7 +88,9 @@ ${description || "(empty)"}
 Queue threshold: ${threshold}.
 Return ONLY one JSON object (no markdown):
 {"score":0-100,"accept":true|false,"reasons":["short reason 1","..."]}
-If accept=true, score should be >= ${threshold}. reasons: 2-6 short items (RU or EN).`;
+accept=true only if the candidate is a genuine FIT for this role (not just keyword overlap).
+Do not inflate score to meet threshold — be honest; sub-threshold fit => accept=false.
+reasons: 2-6 short items (RU or EN) about FIT.`;
 }
 
 function extractJson(text) {
@@ -110,6 +129,12 @@ async function main() {
     process.env.CURSOR_API_KEY_ALT ||
     "";
   if (!apiKey) throw new Error("No CURSOR_API_KEY / cursor_api_key");
+
+  if (!String(payload.candidateProfile || "").trim()) {
+    process.stderr.write(
+      "WARN: candidateProfile empty � missing cvddv/portfolio block from Python\n"
+    );
+  }
 
   const cwd =
     payload.cwd ||

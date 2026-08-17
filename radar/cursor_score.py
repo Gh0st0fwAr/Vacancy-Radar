@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Cursor SDK vacancy scoring (+ rules fallback) and metrics log."""
+"""Cursor SDK vacancy scoring and metrics log."""
 from __future__ import annotations
 
 import json
@@ -7,26 +7,17 @@ import os
 import subprocess
 import tempfile
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from .candidate_profile import build_candidate_block, links_dict
+from .candidate_profile import build_candidate_block, links_dict, load_scoring_context
 from .config import ROOT, load_config
 from .cover_letter import _api_key
 from .metrics_log import append_event
-from .scorer import score_vacancy as score_vacancy_rules
 
 BRIDGE = ROOT / "cursor_bridge" / "score_vacancy.mjs"
-# Workspace root (parent of VacancyRadar); Cyrillic-safe via ROOT
 RULES_CWD = ROOT.parent
 METRICS_PATH = ROOT / "data" / "cursor_score_metrics.jsonl"
-
-
-def scoring_mode(cfg: Optional[dict] = None) -> str:
-    cfg = cfg or load_config()
-    if bool(cfg.get("python_only", False)):
-        return "rules"
-    mode = str(cfg.get("scoring_mode") or "cursor").strip().lower()
-    return mode if mode in ("cursor", "rules") else "cursor"
 
 
 def score_for_search(
@@ -40,82 +31,81 @@ def score_for_search(
     cfg: Optional[dict] = None,
 ) -> Tuple[int, List[str], bool, Dict[str, Any]]:
     """
+    Cursor-SDK-only scoring.
     Returns (score, reasons, accept_ok, meta).
-    meta: source, elapsed_ms, usage, fallback?
     """
     cfg = cfg or load_config()
-    threshold = int(cfg.get("score_threshold") or 65)
-    floor = int(cfg.get("salary_floor") or 120000)
-    mode = scoring_mode(cfg)
+    threshold = int(cfg.get("score_threshold") or 70)
 
-    if mode == "cursor" and _api_key(cfg) and BRIDGE.exists():
-        cur = _via_cursor(
-            title=title,
-            company=company,
-            description=snippet,
-            salary=salary_text,
-            schedule=schedule,
-            experience=experience,
-            threshold=threshold,
-            cfg=cfg,
-        )
-        if cur and cur.get("ok"):
-            score = int(cur.get("score") or 0)
-            reasons = list(cur.get("reasons") or [])
-            accept = bool(cur.get("accept"))
-            # Align with queue: accept_ok means scorer thinks candidate is viable
-            accept_ok = accept or score >= threshold
-            meta = {
-                "source": "cursor",
-                "elapsed_ms": int(cur.get("elapsed_ms") or 0),
-                "usage": cur.get("usage"),
-                "runId": cur.get("runId"),
+    if not (_api_key(cfg) and BRIDGE.exists()):
+        meta = {"source": "cursor_unavailable", "elapsed_ms": 0, "usage": None}
+        _append_metric(
+            {
+                "ts": time.time(),
+                "title": (title or "")[:120],
+                "score": 0,
+                "accept": False,
+                "source": "cursor_unavailable",
+                "elapsed_ms": 0,
+                "usage": None,
             }
-            _append_metric(
-                {
-                    "ts": time.time(),
-                    "title": (title or "")[:120],
-                    "score": score,
-                    "accept": accept_ok,
-                    "source": "cursor",
-                    "elapsed_ms": meta["elapsed_ms"],
-                    "usage": meta["usage"],
-                }
-            )
-            return score, reasons, accept_ok, meta
+        )
+        return 0, ["cursor-unavailable"], False, meta
 
-    # rules path (explicit mode or cursor fallback)
-    t0 = time.perf_counter()
-    score, reasons, accept_ok = score_vacancy_rules(
-        title,
-        snippet,
-        salary_text=salary_text,
+    cur = _via_cursor(
+        title=title,
+        company=company,
+        description=snippet,
+        salary=salary_text,
         schedule=schedule,
         experience=experience,
-        salary_floor=floor,
-        gate_threshold=threshold,
-        profile=cfg,
+        threshold=threshold,
+        cfg=cfg,
     )
-    elapsed = int((time.perf_counter() - t0) * 1000)
+    if cur and cur.get("ok"):
+        score = int(cur.get("score") or 0)
+        reasons = list(cur.get("reasons") or [])
+        accept = bool(cur.get("accept"))
+        accept_ok = accept and score >= threshold
+        meta = {
+            "source": "cursor",
+            "elapsed_ms": int(cur.get("elapsed_ms") or 0),
+            "usage": cur.get("usage"),
+            "runId": cur.get("runId"),
+        }
+        _append_metric(
+            {
+                "ts": time.time(),
+                "title": (title or "")[:120],
+                "score": score,
+                "accept": accept_ok,
+                "source": "cursor",
+                "elapsed_ms": meta["elapsed_ms"],
+                "usage": meta["usage"],
+            }
+        )
+        return score, reasons, accept_ok, meta
+
     meta = {
-        "source": "rules" if mode == "rules" else "rules_fallback",
-        "elapsed_ms": elapsed,
+        "source": "cursor_failed",
+        "elapsed_ms": int((cur or {}).get("elapsed_ms") or 0) if isinstance(cur, dict) else 0,
         "usage": None,
     }
-    if mode == "cursor":
-        reasons = list(reasons) + ["fallback:rules"]
+    reasons = ["cursor-score-failed"]
+    if isinstance(cur, dict) and cur.get("error"):
+        reasons.append(str(cur.get("error"))[:120])
     _append_metric(
         {
             "ts": time.time(),
             "title": (title or "")[:120],
-            "score": score,
-            "accept": accept_ok,
-            "source": meta["source"],
-            "elapsed_ms": elapsed,
+            "score": 0,
+            "accept": False,
+            "source": "cursor_failed",
+            "elapsed_ms": meta["elapsed_ms"],
             "usage": None,
         }
     )
-    return score, reasons, accept_ok, meta
+    return 0, reasons, False, meta
 
 
 def _via_cursor(
@@ -145,8 +135,10 @@ def _via_cursor(
         "model": cfg.get("cursor_model") or "composer-2.5",
         "cwd": str(RULES_CWD),
         "candidateProfile": build_candidate_block(),
+        "scoringRules": load_scoring_context(),
         "portfolioUrl": links["portfolioUrl"],
         "githubUrl": links["githubUrl"],
+        "resumePath": links.get("resumePath") or "",
     }
     timeout = int(cfg.get("cursor_score_timeout_sec") or 120)
     try:
@@ -171,15 +163,32 @@ def _via_cursor(
             except OSError:
                 pass
 
-        raw = (proc.stdout or "").strip()
-        if not raw:
-            return None
-        data = json.loads(raw)
-        if not isinstance(data, dict):
-            return None
-        return data
-    except Exception:
-        return None
+        parsed = _parse_bridge_out(proc.stdout or "", proc.stderr or "")
+        return parsed
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:240], "elapsed_ms": 0}
+
+
+def _parse_bridge_out(stdout: str, stderr: str) -> dict:
+    raw = (stdout or "").strip()
+    if raw:
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            start = raw.find("{")
+            end = raw.rfind("}")
+            if start >= 0 and end > start:
+                try:
+                    data = json.loads(raw[start : end + 1])
+                    if isinstance(data, dict):
+                        return data
+                except Exception:
+                    pass
+    err_lines = [ln.strip() for ln in (stderr or "").splitlines() if ln.strip()]
+    err = (err_lines[-1] if err_lines else "")[:240]
+    return {"ok": False, "error": err or "empty-bridge-stdout", "elapsed_ms": 0}
 
 
 def _append_metric(row: dict) -> None:
@@ -221,3 +230,58 @@ def load_metrics(limit: int = 500) -> List[dict]:
     except Exception:
         return []
     return rows
+
+
+def score_many_parallel(
+    items: List[dict],
+    *,
+    cfg: Optional[dict] = None,
+    workers: Optional[int] = None,
+    on_progress: Optional[Callable[[str], None]] = None,
+) -> List[dict]:
+    """Score vacancies via a pool of node bridge processes."""
+    if not items:
+        return []
+    cfg = cfg or load_config()
+    n_workers = max(1, min(int(workers or cfg.get("cursor_score_workers") or 5), 6))
+
+    def _one(idx: int, item: dict) -> tuple[int, dict]:
+        sc, reasons, ok, meta = score_for_search(
+            title=item.get("title") or "",
+            snippet=item.get("snippet") or "",
+            salary_text=item.get("salary") or "",
+            schedule=item.get("schedule") or "",
+            experience=item.get("experience") or "",
+            company=item.get("company") or "",
+            cfg=cfg,
+        )
+        out = dict(item)
+        out.update(
+            {
+                "score": sc,
+                "reasons": reasons,
+                "accept_ok": ok,
+                "score_meta": meta,
+            }
+        )
+        return idx, out
+
+    ordered: List[Optional[dict]] = [None] * len(items)
+    done_n = 0
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        futs = [pool.submit(_one, i, it) for i, it in enumerate(items)]
+        for fut in as_completed(futs):
+            idx, row = fut.result()
+            ordered[idx] = row
+            done_n += 1
+            if on_progress:
+                title = (row.get("title") or "")[:50]
+                src = (row.get("score_meta") or {}).get("source") or "?"
+                extra = ""
+                if src in ("cursor_failed", "cursor_unavailable"):
+                    reasons = row.get("reasons") or []
+                    hint = next((r for r in reasons if r not in ("cursor-score-failed", "cursor-unavailable")), "")
+                    if hint:
+                        extra = f" {str(hint)[:80]}"
+                on_progress(f"  [{done_n}/{len(items)}] {title} → {row.get('score')}% ({src}){extra}")
+    return [r for r in ordered if r is not None]

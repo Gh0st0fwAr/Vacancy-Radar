@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from .config import QUEUE_PATH, SEEN_PATH, load_json, save_json
 from .refusal import vacancy_looks_refused
@@ -162,6 +162,22 @@ class QueueStore:
         if persist:
             self.save()
 
+    def in_queue(self, url: str) -> bool:
+        nid = norm_url(url)
+        return bool(nid) and any(norm_url(v.url) == nid for v in self.items)
+
+    def forget_seen(self, urls: Iterable[str], *, persist: bool = True) -> int:
+        """Remove URLs from seen so search can rescore them."""
+        removed = 0
+        for u in urls:
+            nid = norm_url(u)
+            if nid and nid in self.seen:
+                self.seen.discard(nid)
+                removed += 1
+        if removed and persist:
+            self.save()
+        return removed
+
     def remember(self, url: str, *, persist: bool = True) -> None:
         """Mark URL as seen without adding to queue (skip future search/score)."""
         nid = norm_url(url)
@@ -187,10 +203,11 @@ class QueueStore:
         self.save()
         return True
 
+    _STATUS_RANK = {"new": 0, "visited": 1, "skipped": 2, "applied": 3}
+
     def mark(self, url: str, status: str) -> None:
         nid = norm_url(url)
         if status == "banned":
-            # Удалить из очереди навсегда; seen не даст вернуться из поиска.
             self.items = [v for v in self.items if norm_url(v.url) != nid]
             if nid:
                 self.seen.add(nid)
@@ -198,8 +215,12 @@ class QueueStore:
                 self.active_url = ""
             self.save()
             return
+        new_rank = self._STATUS_RANK.get(status, 0)
         for v in self.items:
             if norm_url(v.url) == nid:
+                old_rank = self._STATUS_RANK.get(v.status, 0)
+                if new_rank < old_rank:
+                    return
                 v.status = status
                 break
         self.save()

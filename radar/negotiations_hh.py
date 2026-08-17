@@ -43,7 +43,7 @@ JS_SCRAPE_ITEMS = r"""
     }
     const tagQa = tagEl ? (tagEl.getAttribute('data-qa') || '') : '';
     const full = (el.innerText || '').replace(/\u00a0/g, ' ');
-    const employerReply = /????????|????? ?????|??? ??????|????? ???????????|????????????.{0,40}(???????|???????)|???? ?????????/i.test(full)
+    const employerReply = /\u043e\u0442\u0432\u0435\u0442\u0438\u043b|\u043d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442|\u0432\u0430\u043c \u043d\u0430\u043f\u0438\u0441\u0430|\u043d\u043e\u0432\u043e\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d|\u0440\u0430\u0431\u043e\u0442\u043e\u0434\u0430\u0442\u0435\u043b\u044c.{0,40}(\u043d\u0430\u043f\u0438\u0441\u0430\u043b|\u043e\u0442\u0432\u0435\u0442\u0438\u043b)|\u0435\u0441\u0442\u044c \u0441\u043e\u043e\u0431\u0449\u0435\u043d/i.test(full)
       || /negotiations-item-(response|reply|message|invitation|interview|hired)/i.test(tagQa);
     items.push({
       title: vacEl ? (vacEl.innerText || '').replace(/\u00a0/g, ' ').trim() : '',
@@ -183,7 +183,26 @@ def _merge_item(by_key: Dict[str, Dict[str, Any]], norm: Dict[str, Any]) -> None
         by_key[key] = norm
 
 
+def _wait_for_items(session, timeout: float = 8.0) -> int:
+    deadline = time.time() + timeout
+    last = 0
+    while time.time() < deadline:
+        try:
+            n = session.evaluate(
+                "document.querySelectorAll('[data-qa=\"negotiations-item\"]').length",
+                timeout=5,
+            )
+            last = int(n or 0)
+            if last > 0:
+                return last
+        except Exception:
+            pass
+        time.sleep(0.4)
+    return last
+
+
 def _scrape_current(session, filter_key: str, by_key: Dict[str, Dict[str, Any]]) -> bool:
+    _wait_for_items(session, timeout=8.0)
     for _ in range(4):
         try:
             session.evaluate(JS_SCROLL, timeout=5)
@@ -193,7 +212,11 @@ def _scrape_current(session, filter_key: str, by_key: Dict[str, Dict[str, Any]])
     try:
         raw = session.evaluate(JS_SCRAPE_ITEMS, timeout=12) or {}
     except Exception:
-        return True
+        time.sleep(1.2)
+        try:
+            raw = session.evaluate(JS_SCRAPE_ITEMS, timeout=12) or {}
+        except Exception:
+            return True
     if raw.get("needLogin"):
         return False
     for it in raw.get("items") or []:
@@ -226,7 +249,7 @@ def scrape_negotiations(session) -> List[Dict[str, Any]]:
 
 def apply_negotiations(store: QueueStore, items: List[Dict[str, Any]]) -> Dict[str, int]:
     items = items or []
-    added = updated = removed = 0
+    added = updated = removed = promoted = 0
     by_url: Dict[str, Dict[str, Any]] = {}
     by_title_co: Dict[str, Dict[str, Any]] = {}
     for it in items:
@@ -262,6 +285,8 @@ def apply_negotiations(store: QueueStore, items: List[Dict[str, Any]]) -> Dict[s
                 v.hh_tag = tag
                 changed = True
             if hh in APPLIED_HH and v.status not in ("banned", "skipped") and v.status != "applied":
+                if v.status == "visited":
+                    promoted += 1
                 v.status = "applied"
                 changed = True
             if changed:
@@ -315,7 +340,7 @@ def apply_negotiations(store: QueueStore, items: List[Dict[str, Any]]) -> Dict[s
     store.items.sort(key=sort_key)
     store.purge_refused(persist=False)
     store.save()
-    return {"added": added, "updated": updated, "removed": removed, "total": len(items)}
+    return {"added": added, "updated": updated, "removed": removed, "promoted": promoted, "total": len(items)}
 
 
 def badge_for(v: Vacancy) -> str:

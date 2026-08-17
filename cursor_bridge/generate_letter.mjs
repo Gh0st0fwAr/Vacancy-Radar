@@ -28,15 +28,24 @@ function buildPrompt(p) {
   const company = (p.company || "").trim();
   const salary = (p.salary || "").trim();
   const reasons = Array.isArray(p.reasons) ? p.reasons.join("; ") : "";
-  const description = String(p.description || "").slice(0, 7000);
+  const description = String(p.description || "").slice(0, 12000);
+  const portfolioUrl =
+    String(p.portfolioUrl || "").trim() || "https://gh0st0fwar.github.io/";
+  const githubUrl =
+    String(p.githubUrl || "").trim() || "https://github.com/Gh0st0fwAr";
+  const resumePath = String(p.resumePath || "").trim() || "cvddv.pdf";
+  const candidate = String(p.candidateProfile || "").trim();
 
   return `Ты пишешь сопроводительное письмо для отклика на вакансию.
 Кандидат: Даниил Вирин, Middle frontend (Vue), 6+ лет коммерции.
-Рабочая папка с правилами: прочитай при необходимости .cursor/rules/vacancy-rounds.mdc
+Контекст тот же, что у скоринга SDK и IDE Cursor: резюме ${resumePath}, портфолио ${portfolioUrl}, GitHub ${githubUrl}.
+Рабочая папка: при необходимости опирайся на .cursor/rules/vacancy-rounds.mdc и VacancyRadar/cursor_bridge/SCORING_CONTEXT.md
+
+${candidate ? `ПРОФИЛЬ КАНДИДАТА (из cvddv.pdf + ссылки — доверяй этому блоку):\n${candidate}\n` : ""}
 
 ЖЁСТКИЕ ПРАВИЛА ПИСЬМА:
 - Шапка ровно так (три строки):
-  Портфолио: https://gh0st0fwar.github.io/
+  Портфолио: ${portfolioUrl}
   Telegram: @daniil_virin
   Email: 39dv@mail.ru
 - Далее: Здравствуйте!

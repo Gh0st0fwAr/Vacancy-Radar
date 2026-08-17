@@ -249,6 +249,38 @@ button {
   justify-content: space-between;
   padding: 12px var(--pad-x) 8px;
 }
+
+.activity-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--accent);
+  background: rgba(15, 118, 110, 0.18);
+  border: 1px solid rgba(94, 234, 212, 0.25);
+  border-radius: var(--r-btn);
+}
+
+.activity-bar.is-busy .activity-dot {
+  animation: activity-pulse 1s ease-in-out infinite;
+}
+
+.activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+@keyframes activity-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
 .queue-head h2 {
   margin: 0;
   font-size: 16px;
@@ -256,12 +288,16 @@ button {
 }
 .queue-cols {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+.queue-cols span:nth-last-child(2) {
+  width: 44px;
+  text-align: right;
 }
 .queue-cols span:last-child {
   width: 44px;
@@ -283,7 +319,7 @@ button {
 */
 .vac-item {
   display: grid;
-  grid-template-columns: var(--stripe-w) 48px 1fr auto auto;
+  grid-template-columns: var(--stripe-w) 48px 1fr auto auto auto;
   gap: 10px;
   align-items: center;
   width: 100%;
@@ -336,6 +372,23 @@ button {
   color: #7d8793;
 }
 
+.vac-item.is-visited {
+  background: #1a222c;
+}
+.vac-item.is-visited .vac-stripe {
+  background: #64748b;
+}
+.vac-item.is-visited .vac-title {
+  color: #94a3b8;
+  font-weight: 500;
+}
+.vac-item.is-visited .vac-company,
+.vac-item.is-visited .vac-meta,
+.vac-item.is-visited .vac-letter,
+.vac-item.is-visited .vac-score {
+  color: #64748b;
+}
+
 .vac-item.is-invite {
   background: var(--invite-row);
 }
@@ -369,7 +422,7 @@ button {
   outline-offset: -2px;
   border-radius: var(--r-active);
 }
-.vac-item.active:not(.is-pointer):not(.is-invite):not(.is-apply) {
+.vac-item.active:not(.is-pointer):not(.is-invite):not(.is-apply):not(.is-visited) {
   background: rgba(45, 212, 191, 0.07);
 }
 
@@ -436,6 +489,10 @@ button {
   color: var(--apply-fg);
   background: rgba(148, 163, 184, 0.12);
 }
+.pill-seen {
+  color: #94a3b8;
+  background: rgba(100, 116, 139, 0.18);
+}
 .pill-now {
   color: var(--pointer-fg);
   background: rgba(61, 255, 106, 0.12);
@@ -448,6 +505,26 @@ button {
   font-weight: 700;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
+}
+
+.vac-letter {
+  width: 44px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.vac-letter.is-busy {
+  color: var(--accent);
+  animation: activity-pulse 1s ease-in-out infinite;
+}
+.vac-letter.is-ok {
+  color: var(--accent);
+}
+.vac-letter.is-fail {
+  color: #fecaca;
 }
 
 .queue-actions {
@@ -665,6 +742,24 @@ button {
   font-size: 16px;
   color: var(--text);
   font-weight: 700;
+}
+.letter-status {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.letter-status.is-busy {
+  color: var(--accent);
+  animation: activity-pulse 1s ease-in-out infinite;
+}
+.letter-status.is-ok {
+  color: var(--accent);
+}
+.letter-status.is-fail {
+  color: #fecaca;
 }
 .letter-body {
   flex: 1;

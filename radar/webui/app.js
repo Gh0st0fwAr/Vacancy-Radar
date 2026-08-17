@@ -43,6 +43,7 @@
     if (kind === "pointer") return "pill-now";
     if (kind === "invite") return "pill-invite";
     if (kind === "apply") return "pill-applied";
+    if (kind === "visited") return "pill-seen";
     return "pill-new";
   }
 
@@ -50,6 +51,7 @@
     if (kind === "pointer") return "is-pointer";
     if (kind === "invite") return "is-invite";
     if (kind === "apply") return "is-apply";
+    if (kind === "visited") return "is-visited";
     return "is-new";
   }
 
@@ -103,6 +105,13 @@
           '">' +
           esc(it.pill || "") +
           "</span>" +
+          '<span class="vac-letter' +
+          (it.letterStatus === "writing" ? " is-busy" : "") +
+          (it.letterStatus === "fail" ? " is-fail" : "") +
+          (it.letterStatus === "ok" || it.letterStatus === "cursor" ? " is-ok" : "") +
+          '">' +
+          esc(it.letter || "") +
+          "</span>" +
           '<span class="vac-score">' +
           (it.score > 0 ? it.score : "") +
           "</span>" +
@@ -128,6 +137,11 @@
       document.getElementById("d-facts").innerHTML = "";
       document.getElementById("d-skills").innerHTML = "";
       document.getElementById("d-letter").textContent = "";
+      const lst0 = document.getElementById("d-letter-status");
+      if (lst0) {
+        lst0.textContent = "—";
+        lst0.className = "letter-status";
+      }
       return;
     }
     document.getElementById("d-title").textContent = d.title || "";
@@ -156,6 +170,25 @@
       .map((s) => '<span class="skill">' + esc(s) + "</span>")
       .join("");
     document.getElementById("d-letter").textContent = d.letter || "";
+    const lst = document.getElementById("d-letter-status");
+    if (lst) {
+      const st = d.letterStatus || "";
+      const labels = {
+        writing: "Writing…",
+        queued: "Queued",
+        pending: "Pending",
+        ok: "Ready",
+        cursor: "Ready",
+        local: "Local",
+        fail: "Failed",
+      };
+      lst.textContent = labels[st] || (d.letter ? "Ready" : "—");
+      lst.className =
+        "letter-status" +
+        (st === "writing" ? " is-busy" : "") +
+        (st === "fail" ? " is-fail" : "") +
+        (st === "ok" || st === "cursor" ? " is-ok" : "");
+    }
   }
 
   function renderStrip() {
@@ -252,7 +285,10 @@
     document.getElementById("opt-min").checked = !!s.minimize_previous;
     document.getElementById("opt-autostart").checked = !!s.autostart_enabled;
     const scoring = document.getElementById("opt-scoring");
-    if (scoring) scoring.value = s.scoring_mode === "rules" ? "rules" : "cursor";
+    if (scoring) {
+      const m = s.scoring_mode || "hybrid";
+      scoring.value = m === "rules" || m === "cursor" ? m : "hybrid";
+    }
     const sel = document.getElementById("opt-theme");
     if (sel && s.themes && !sel.dataset.filled) {
       sel.innerHTML = (s.themes || [])
@@ -279,6 +315,8 @@
 
   function renderBusy() {
     document.getElementById("btn-search").disabled = !!state.busy.search;
+    const cc = document.getElementById("btn-clear-check");
+    if (cc) cc.disabled = !!state.busy.search;
     document.getElementById("btn-stats").disabled = !!state.busy.stats;
     const b2 = document.getElementById("btn-stats2");
     if (b2) b2.disabled = !!state.busy.stats;
@@ -297,8 +335,8 @@
     onEvent: function (event, data) {
       data = data || {};
       if (event === "queue") {
-        state.items = data.items || [];
-        state.counts = data.counts || state.counts;
+        if (data.items) state.items = data.items;
+        if (data.counts) state.counts = data.counts;
         if (data.selectedUrl) state.selectedUrl = data.selectedUrl;
         renderList();
         renderStrip();
@@ -326,6 +364,24 @@
       } else if (event === "busy") {
         state.busy = Object.assign({}, state.busy, data);
         renderBusy();
+      } else if (event === "activity") {
+        const bar = document.getElementById("activity-bar");
+        const txt = document.getElementById("activity-text");
+        if (!bar || !txt) return;
+        if (data.busy) {
+          bar.hidden = false;
+          bar.classList.add("is-busy");
+          txt.textContent = data.line || "Working…";
+        } else {
+          bar.classList.remove("is-busy");
+          if (data.line) {
+            bar.hidden = false;
+            txt.textContent = data.line;
+          } else {
+            bar.hidden = true;
+            txt.textContent = "—";
+          }
+        }
       } else if (event === "page") {
         showPage(data.name || "queue");
       }
@@ -334,6 +390,8 @@
 
   function wire() {
     document.getElementById("btn-search").onclick = () => send("search");
+    const btnClear = document.getElementById("btn-clear-check");
+    if (btnClear) btnClear.onclick = () => send("clearCheck");
     document.getElementById("btn-stats").onclick = () => send("stats");
     document.getElementById("btn-stats2").onclick = () => send("stats");
     document.getElementById("btn-open").onclick = () => send("open");

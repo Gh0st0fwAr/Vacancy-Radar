@@ -1,70 +1,35 @@
 # -*- coding: utf-8 -*-
-"""Tests for Cursor / rules scoring dispatcher."""
+"""Tests for Cursor SDK scoring (cursor-only, no hybrid/rules paths)."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
 from unittest.mock import patch
 
-from radar.cursor_score import score_for_search, scoring_mode
+from radar.cursor_score import score_for_search
 
 
-def _support_cfg(**extra):
-    cfg = json.loads(
-        (Path(__file__).resolve().parents[1] / "data" / "config.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    cfg["cursor_api_key"] = ""
-    cfg["scoring_mode"] = "rules"
-    cfg.update(extra)
-    return cfg
-
-
-class TestScoringMode:
-    def test_default_cursor(self):
-        assert scoring_mode({"scoring_mode": "cursor"}) == "cursor"
-        assert scoring_mode({"scoring_mode": "rules"}) == "rules"
-        assert scoring_mode({"scoring_mode": "weird"}) == "cursor"
-
-    def test_python_only_forces_rules(self):
-        assert scoring_mode({"scoring_mode": "cursor", "python_only": True}) == "rules"
-
-
-class TestScoreForSearchRules:
-    def test_rules_mode_uses_local_scorer(self):
-        cfg = _support_cfg()
-        sc, reasons, ok, meta = score_for_search(
-            title="Linux L1 support remote",
-            snippet="Linux support L1 Python PostgreSQL remote Junior",
-            salary_text="",
-            schedule="remote",
-            company="TestCo",
-            cfg=cfg,
-        )
-        assert meta["source"] == "rules"
-        assert ok is True
-        assert sc >= 80
-        assert any("remote" in r or "must:" in r for r in reasons)
-
-
-class TestScoreForSearchCursorFallback:
-    def test_cursor_falls_back_without_key(self):
-        cfg = _support_cfg(scoring_mode="cursor", python_only=False)
+class TestCursorUnavailable:
+    def test_no_key_returns_unavailable(self):
+        cfg = {
+            "score_threshold": 70,
+            "cursor_api_key": "",
+        }
         sc, reasons, ok, meta = score_for_search(
             title="Linux support remote",
             snippet="Linux support L1 remote",
             schedule="remote",
             cfg=cfg,
         )
-        assert meta["source"] == "rules_fallback"
-        assert "fallback:rules" in reasons
-        assert isinstance(sc, int)
+        assert meta["source"] == "cursor_unavailable"
+        assert ok is False
+        assert sc == 0
+        assert "cursor-unavailable" in reasons
 
 
 class TestCursorBridgeParse:
     def test_extract_json_shape_documented(self):
-        sample = {"score": 78, "accept": True, "reasons": ["Linux", "remote"]}
+        sample = {"score": 78, "accept": True, "reasons": ["Vue 3", "remote"]}
         raw = json.dumps(sample)
         parsed = json.loads(raw)
         assert parsed["score"] == 78
@@ -73,13 +38,12 @@ class TestCursorBridgeParse:
 
 class TestCursorViaMock:
     def test_cursor_path_when_bridge_returns_ok(self):
-        cfg = _support_cfg(
-            scoring_mode="cursor",
-            python_only=False,
-            cursor_api_key="test-key",
-            cursor_model="composer-2.5",
-            cursor_score_timeout_sec=30,
-        )
+        cfg = {
+            "score_threshold": 65,
+            "cursor_api_key": "test-key",
+            "cursor_model": "composer-2.5",
+            "cursor_score_timeout_sec": 30,
+        }
         fake = {
             "ok": True,
             "score": 82,
@@ -103,3 +67,50 @@ class TestCursorViaMock:
         assert ok is True
         assert meta["source"] == "cursor"
         assert meta["usage"]["totalTokens"] == 1080
+        assert "Vue 3 fit" in reasons
+
+    def test_cursor_below_threshold_not_accepted(self):
+        cfg = {
+            "score_threshold": 70,
+            "cursor_api_key": "test-key",
+            "cursor_model": "composer-2.5",
+            "cursor_score_timeout_sec": 30,
+        }
+        fake = {
+            "ok": True,
+            "score": 45,
+            "accept": False,
+            "reasons": ["some match"],
+            "elapsed_ms": 500,
+        }
+        with patch("radar.cursor_score._api_key", return_value="test-key"):
+            with patch("radar.cursor_score.BRIDGE") as br:
+                br.exists.return_value = True
+                with patch("radar.cursor_score._via_cursor", return_value=fake):
+                    sc, reasons, ok, meta = score_for_search(
+                        title="Java backend",
+                        snippet="Java Spring",
+                        cfg=cfg,
+                    )
+        assert sc == 45
+        assert ok is False
+        assert meta["source"] == "cursor"
+
+    def test_cursor_bridge_failure_returns_zero(self):
+        cfg = {
+            "score_threshold": 70,
+            "cursor_api_key": "test-key",
+            "cursor_score_timeout_sec": 30,
+        }
+        with patch("radar.cursor_score._api_key", return_value="test-key"):
+            with patch("radar.cursor_score.BRIDGE") as br:
+                br.exists.return_value = True
+                with patch("radar.cursor_score._via_cursor", return_value=None):
+                    sc, reasons, ok, meta = score_for_search(
+                        title="Vue 3",
+                        snippet="Vue3 TS",
+                        cfg=cfg,
+                    )
+        assert sc == 0
+        assert ok is False
+        assert meta["source"] == "cursor_failed"

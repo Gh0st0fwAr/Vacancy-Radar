@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Global hotkey capture/listen via pynput (keyboard + mouse X1/X2)."""
+"""Global hotkey: Windows RegisterHotKey + pynput fallback (mouse X1/X2)."""
 from __future__ import annotations
 
+import ctypes
 from typing import Callable, Optional, Set
 
 from pynput import keyboard, mouse
@@ -22,6 +23,43 @@ def hotkey_label(s: str) -> str:
     return s.upper().replace("+", " + ")
 
 
+def combo_parts(hk: str) -> tuple[Set[str], str]:
+    parts = [p for p in normalize_hotkey(hk).split("+") if p]
+    mods = {p for p in parts if p in ("ctrl", "alt", "shift", "win")}
+    keys = [p for p in parts if p not in ("ctrl", "alt", "shift", "win")]
+    return mods, (keys[-1] if keys else "")
+
+
+def win_mods_down() -> Set[str]:
+    """Реальные модификаторы с клавиатуры (не залипший набор pynput)."""
+    user32 = ctypes.windll.user32
+
+    def down(vk: int) -> bool:
+        return bool(user32.GetAsyncKeyState(vk) & 0x8000)
+
+    out: Set[str] = set()
+    if down(0x11) or down(0xA2) or down(0xA3):
+        out.add("ctrl")
+    if down(0x12) or down(0xA4) or down(0xA5):
+        out.add("alt")
+    if down(0x10) or down(0xA0) or down(0xA1):
+        out.add("shift")
+    if down(0x5B) or down(0x5C):
+        out.add("win")
+    return out
+
+
+def combo_actually_down(hotkey: str, *, mods_down: Optional[Set[str]] = None) -> bool:
+    """True только если набор модификаторов совпадает (Alt+Q ≠ Ctrl+Alt+Q)."""
+    need, _key = combo_parts(hotkey)
+    if not need:
+        return True
+    actual = mods_down if mods_down is not None else win_mods_down()
+    extra = actual - need
+    extra.discard("shift")
+    return need <= actual and not extra
+
+
 class HotkeyManager:
     def __init__(self, on_trigger: Callable[[], None]) -> None:
         self.on_trigger = on_trigger
@@ -32,6 +70,8 @@ class HotkeyManager:
         self._pressed: Set[str] = set()
         self._enabled = True
         self._last_fire = 0.0
+        self.keyboard_enabled = True
+        self.suppress_fire = False
 
     def set_hotkey(self, hk: str) -> None:
         self.hotkey = normalize_hotkey(hk)
@@ -45,12 +85,13 @@ class HotkeyManager:
 
     def start(self) -> None:
         self.stop()
-        self._kb_listener = keyboard.Listener(
-            on_press=self._on_key_press,
-            on_release=self._on_key_release,
-        )
+        if self.keyboard_enabled:
+            self._kb_listener = keyboard.Listener(
+                on_press=self._on_key_press,
+                on_release=self._on_key_release,
+            )
+            self._kb_listener.start()
         self._mouse_listener = mouse.Listener(on_click=self._on_click)
-        self._kb_listener.start()
         self._mouse_listener.start()
 
     def restart(self) -> None:
@@ -90,7 +131,6 @@ class HotkeyManager:
         if key in mapping:
             return mapping[key]
 
-        # With Ctrl/Alt, key.char is often None — use virtual-key code
         vk = getattr(key, "vk", None)
         if vk is not None:
             if 65 <= vk <= 90:
@@ -132,8 +172,7 @@ class HotkeyManager:
         import time
 
         now = time.time()
-        # Антидребезг: иначе Ctrl+Alt+Q успевает открыть несколько вкладок подряд.
-        if now - self._last_fire < 1.5:
+        if now - self._last_fire < 0.45:
             return
         self._last_fire = now
         try:
@@ -158,8 +197,14 @@ class HotkeyManager:
 
         if not self._enabled:
             return
-        if combo == normalize_hotkey(self.hotkey):
-            self._fire()
+        if self.suppress_fire:
+            return
+        _need_mods, need_key = combo_parts(self.hotkey)
+        if name != need_key:
+            return
+        if not combo_actually_down(self.hotkey):
+            return
+        self._fire()
 
     def _on_key_release(self, key) -> None:
         name = self._key_name(key)
