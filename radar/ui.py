@@ -71,6 +71,7 @@ class BgBridge(QObject):
 class MainWindow(QMainWindow):
     hotkey_hit = Signal()
     hotkey_captured = Signal(str)
+    search_progress = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -96,6 +97,7 @@ class MainWindow(QMainWindow):
         self.hotkeys.start()
         self.hotkey_hit.connect(self.on_hotkey)
         self.hotkey_captured.connect(self.on_hotkey_captured)
+        self.search_progress.connect(self.append_log)
 
         self._build_ui()
         self._build_tray()
@@ -141,6 +143,7 @@ class MainWindow(QMainWindow):
         w = self.web
         w.bind("ready", lambda _p: self._push_all_state())
         w.bind("search", lambda _p: self.run_search())
+        w.bind("clearCheck", lambda _p: self.run_clear_check())
         w.bind("stats", lambda _p: self.run_stats())
         w.bind("select", lambda p: self._web_select(p.get("url") or ""))
         w.bind("open", lambda _p: self.open_selected())
@@ -176,7 +179,7 @@ class MainWindow(QMainWindow):
                 "autostart_enabled": bool(self.cfg.get("autostart_enabled", False))
                 or is_autostart_enabled(),
                 "ui_theme": str(self.cfg.get("ui_theme") or "04"),
-                "scoring_mode": str(self.cfg.get("scoring_mode") or "cursor"),
+                "scoring_mode": str(self.cfg.get("scoring_mode") or "hybrid"),
                 "themes": [{"id": t, "label": THEME_LABELS.get(t, t)} for t in THEME_IDS],
             },
         )
@@ -203,8 +206,8 @@ class MainWindow(QMainWindow):
         if "minimize_previous" in p:
             self.cfg["minimize_previous"] = bool(p.get("minimize_previous"))
         if "scoring_mode" in p:
-            mode = str(p.get("scoring_mode") or "cursor").strip().lower()
-            self.cfg["scoring_mode"] = mode if mode in ("cursor", "rules") else "cursor"
+            mode = str(p.get("scoring_mode") or "hybrid").strip().lower()
+            self.cfg["scoring_mode"] = mode if mode in ("cursor", "rules", "hybrid") else "hybrid"
             self.append_log("Scoring mode: " + str(self.cfg["scoring_mode"]))
         if "autostart_enabled" in p:
             want = bool(p.get("autostart_enabled"))
@@ -647,21 +650,34 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Связь", str(e))
 
     def run_search(self):
+        self._run_search_impl(clear_check=False)
+
+    def run_clear_check(self):
+        self._run_search_impl(clear_check=True)
+
+    def _run_search_impl(self, *, clear_check: bool):
         if self._busy_search:
             self.append_log("Поиск уже идёт…")
             return
         self._busy_search = True
         self.web.set_busy(search=True)
-        self.append_log("Поиск HH… (deep: полный текст каждой новой вакансии)")
+        if clear_check:
+            self.append_log("Clear Check: полная перепроверка SERP (2 дня)…")
+        else:
+            self.append_log("Поиск HH… (hybrid + pagination + deep text)")
+
+        def on_prog(msg: str) -> None:
+            self.search_progress.emit(msg)
 
         def job():
-            return search_once(self.store)
+            return search_once(self.store, clear_check=clear_check, on_progress=on_prog)
 
+        timeout = int(self.cfg.get("clear_check_timeout_sec") or 900) if clear_check else 600
         self._run_bg(
             job,
             self._on_search_done,
             self._on_search_fail,
-            timeout_sec=90,
+            timeout_sec=timeout,
             on_timeout=self._on_search_timeout,
         )
 
@@ -682,9 +698,10 @@ class MainWindow(QMainWindow):
             self.append_log("Поиск: " + ((result or {}).get("error") or "ошибка"))
             return
         added = result.get("added") or []
+        mode = "Clear Check" if result.get("clear_check") else "Поиск"
         self.append_log(
-            f"Поиск OK. Новых: {len(added)}, проверено: {result.get('checked')}, "
-            f"полных страниц: {result.get('deep_opened', 0)}, "
+            f"{mode} OK. Новых: {len(added)}, проверено: {result.get('checked')}, "
+            f"SERP стр.: {result.get('serp_pages', 0)}, deep: {result.get('deep_opened', 0)}, "
             f"{result.get('elapsed_sec', '?')}с"
         )
         self.refresh_queue_list()

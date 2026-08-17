@@ -25,8 +25,32 @@ def scoring_mode(cfg: Optional[dict] = None) -> str:
     cfg = cfg or load_config()
     if bool(cfg.get("python_only", False)):
         return "rules"
-    mode = str(cfg.get("scoring_mode") or "cursor").strip().lower()
-    return mode if mode in ("cursor", "rules") else "cursor"
+    mode = str(cfg.get("scoring_mode") or "hybrid").strip().lower()
+    return mode if mode in ("cursor", "rules", "hybrid") else "hybrid"
+
+
+def _rules_score(
+    *,
+    title: str,
+    snippet: str,
+    salary_text: str,
+    schedule: str,
+    experience: str,
+    cfg: dict,
+) -> Tuple[int, List[str], bool]:
+    threshold = int(cfg.get("score_threshold") or 70)
+    floor = int(cfg.get("salary_floor") or 120000)
+    good = int(cfg.get("salary_good") or 140000)
+    return score_vacancy_rules(
+        title,
+        snippet,
+        salary_text=salary_text,
+        schedule=schedule,
+        experience=experience,
+        salary_floor=floor,
+        salary_good=good,
+        gate_threshold=threshold,
+    )
 
 
 def score_for_search(
@@ -44,12 +68,58 @@ def score_for_search(
     meta: source, elapsed_ms, usage, fallback?
     """
     cfg = cfg or load_config()
-    threshold = int(cfg.get("score_threshold") or 65)
-    floor = int(cfg.get("salary_floor") or 120000)
-    good = int(cfg.get("salary_good") or 140000)
+    threshold = int(cfg.get("score_threshold") or 70)
     mode = scoring_mode(cfg)
 
-    if mode == "cursor" and _api_key(cfg) and BRIDGE.exists():
+    t0_rules = time.perf_counter()
+    rules_score, rules_reasons, rules_ok = _rules_score(
+        title=title,
+        snippet=snippet,
+        salary_text=salary_text,
+        schedule=schedule,
+        experience=experience,
+        cfg=cfg,
+    )
+    rules_elapsed = int((time.perf_counter() - t0_rules) * 1000)
+
+    if mode == "rules":
+        meta = {"source": "rules", "elapsed_ms": rules_elapsed, "usage": None}
+        _append_metric(
+            {
+                "ts": time.time(),
+                "title": (title or "")[:120],
+                "score": rules_score,
+                "accept": rules_ok,
+                "source": "rules",
+                "elapsed_ms": rules_elapsed,
+                "usage": None,
+            }
+        )
+        return rules_score, rules_reasons, rules_ok, meta
+
+    hybrid_min = int(cfg.get("hybrid_rules_min") or 60)
+    if mode == "hybrid" and rules_score < hybrid_min:
+        meta = {
+            "source": "hybrid_prefilter",
+            "elapsed_ms": rules_elapsed,
+            "usage": None,
+            "rules_score": rules_score,
+        }
+        reasons = list(rules_reasons) + [f"hybrid:prefilter<{hybrid_min}"]
+        _append_metric(
+            {
+                "ts": time.time(),
+                "title": (title or "")[:120],
+                "score": rules_score,
+                "accept": rules_ok,
+                "source": "hybrid_prefilter",
+                "elapsed_ms": rules_elapsed,
+                "usage": None,
+            }
+        )
+        return rules_score, reasons, rules_ok, meta
+
+    if mode in ("cursor", "hybrid") and _api_key(cfg) and BRIDGE.exists():
         cur = _via_cursor(
             title=title,
             company=company,
@@ -61,16 +131,20 @@ def score_for_search(
             cfg=cfg,
         )
         if cur and cur.get("ok"):
-            score = int(cur.get("score") or 0)
+            cursor_score = int(cur.get("score") or 0)
+            score = max(cursor_score, rules_score) if mode == "hybrid" else cursor_score
             reasons = list(cur.get("reasons") or [])
             accept = bool(cur.get("accept"))
-            # Align with queue: accept_ok means scorer thinks candidate is viable
-            accept_ok = accept or score >= threshold
+            accept_ok = accept or score >= threshold or (mode == "hybrid" and rules_ok)
+            src = "hybrid_cursor" if mode == "hybrid" else "cursor"
+            if mode == "hybrid":
+                reasons = reasons + [f"rules:{rules_score}%"]
             meta = {
-                "source": "cursor",
-                "elapsed_ms": int(cur.get("elapsed_ms") or 0),
+                "source": src,
+                "elapsed_ms": int(cur.get("elapsed_ms") or 0) + rules_elapsed,
                 "usage": cur.get("usage"),
                 "runId": cur.get("runId"),
+                "rules_score": rules_score,
             }
             _append_metric(
                 {
@@ -78,14 +152,40 @@ def score_for_search(
                     "title": (title or "")[:120],
                     "score": score,
                     "accept": accept_ok,
-                    "source": "cursor",
+                    "source": src,
                     "elapsed_ms": meta["elapsed_ms"],
                     "usage": meta["usage"],
                 }
             )
             return score, reasons, accept_ok, meta
 
-        # Cursor mode + checkbox: do NOT silently score with Python rules.
+        if mode == "hybrid":
+            meta = {
+                "source": "hybrid_rules_fallback",
+                "elapsed_ms": rules_elapsed
+                + int((cur or {}).get("elapsed_ms") or 0)
+                if isinstance(cur, dict)
+                else rules_elapsed,
+                "usage": None,
+                "rules_score": rules_score,
+            }
+            reasons = list(rules_reasons) + ["hybrid:cursor-failed→rules"]
+            if isinstance(cur, dict) and cur.get("error"):
+                reasons.append(str(cur.get("error"))[:120])
+            _append_metric(
+                {
+                    "ts": time.time(),
+                    "title": (title or "")[:120],
+                    "score": rules_score,
+                    "accept": rules_ok,
+                    "source": "hybrid_rules_fallback",
+                    "elapsed_ms": meta["elapsed_ms"],
+                    "usage": None,
+                }
+            )
+            return rules_score, reasons, rules_ok, meta
+
+        # Cursor-only mode: failure without rules fallback.
         meta = {
             "source": "cursor_failed",
             "elapsed_ms": int((cur or {}).get("elapsed_ms") or 0) if isinstance(cur, dict) else 0,
@@ -122,36 +222,20 @@ def score_for_search(
         )
         return 0, ["cursor-unavailable"], False, meta
 
-    # Explicit rules mode only
-    t0 = time.perf_counter()
-    score, reasons, accept_ok = score_vacancy_rules(
-        title,
-        snippet,
-        salary_text=salary_text,
-        schedule=schedule,
-        experience=experience,
-        salary_floor=floor,
-        salary_good=good,
-        gate_threshold=threshold,
-    )
-    elapsed = int((time.perf_counter() - t0) * 1000)
-    meta = {
-        "source": "rules",
-        "elapsed_ms": elapsed,
-        "usage": None,
-    }
+    # hybrid without key/bridge → rules only
+    meta = {"source": "rules", "elapsed_ms": rules_elapsed, "usage": None}
     _append_metric(
         {
             "ts": time.time(),
             "title": (title or "")[:120],
-            "score": score,
-            "accept": accept_ok,
-            "source": meta["source"],
-            "elapsed_ms": elapsed,
+            "score": rules_score,
+            "accept": rules_ok,
+            "source": "rules",
+            "elapsed_ms": rules_elapsed,
             "usage": None,
         }
     )
-    return score, reasons, accept_ok, meta
+    return rules_score, rules_reasons, rules_ok, meta
 
 
 def _via_cursor(

@@ -74,6 +74,26 @@ def beep_search_done() -> None:
     threading.Thread(target=_run, daemon=True).start()
 
 
+def beep_five_seconds() -> None:
+    """Длинный сигнал по завершении крупной задачи (~5 с)."""
+    def _run():
+        try:
+            import time
+            import winsound
+
+            end = time.time() + 5.0
+            while time.time() < end:
+                winsound.Beep(880, 180)
+                time.sleep(0.07)
+        except Exception:
+            try:
+                print("\a" * 5, flush=True)
+            except Exception:
+                pass
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def beep_six() -> None:
     """Активность работодателя (приглашение / чат / собес)."""
     _beep_loop(6, freq=1200, dur=120, gap=0.06)

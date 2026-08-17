@@ -22,6 +22,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
           Search Now <span class="kbd">F5</span>
         </button>
+        <button class="btn btn-ghost" type="button" id="btn-clear-check" title="Full SERP recheck (2 days), reset seen, ignore visited">
+          Clear Check
+        </button>
         <button class="btn btn-ghost" type="button" id="btn-stats">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
           Update Stats <span class="kbd">F9</span>
@@ -143,7 +146,8 @@
           <div class="panel-row" style="align-items:center;margin-top:12px">
             <label for="opt-scoring" style="color:var(--text-dim)">Vacancy scoring</label>
             <select id="opt-scoring" class="select">
-              <option value="cursor">Cursor SDK (default)</option>
+              <option value="hybrid">Hybrid (rules → Cursor)</option>
+              <option value="cursor">Cursor SDK only</option>
               <option value="rules">Python rules</option>
             </select>
           </div>

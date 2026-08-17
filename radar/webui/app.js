@@ -252,7 +252,10 @@
     document.getElementById("opt-min").checked = !!s.minimize_previous;
     document.getElementById("opt-autostart").checked = !!s.autostart_enabled;
     const scoring = document.getElementById("opt-scoring");
-    if (scoring) scoring.value = s.scoring_mode === "rules" ? "rules" : "cursor";
+    if (scoring) {
+      const m = s.scoring_mode || "hybrid";
+      scoring.value = m === "rules" || m === "cursor" ? m : "hybrid";
+    }
     const sel = document.getElementById("opt-theme");
     if (sel && s.themes && !sel.dataset.filled) {
       sel.innerHTML = (s.themes || [])
@@ -279,6 +282,8 @@
 
   function renderBusy() {
     document.getElementById("btn-search").disabled = !!state.busy.search;
+    const cc = document.getElementById("btn-clear-check");
+    if (cc) cc.disabled = !!state.busy.search;
     document.getElementById("btn-stats").disabled = !!state.busy.stats;
     const b2 = document.getElementById("btn-stats2");
     if (b2) b2.disabled = !!state.busy.stats;
@@ -334,6 +339,8 @@
 
   function wire() {
     document.getElementById("btn-search").onclick = () => send("search");
+    const btnClear = document.getElementById("btn-clear-check");
+    if (btnClear) btnClear.onclick = () => send("clearCheck");
     document.getElementById("btn-stats").onclick = () => send("stats");
     document.getElementById("btn-stats2").onclick = () => send("stats");
     document.getElementById("btn-open").onclick = () => send("open");

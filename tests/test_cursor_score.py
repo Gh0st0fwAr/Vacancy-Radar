@@ -9,13 +9,56 @@ from radar.cursor_score import score_for_search, scoring_mode
 
 
 class TestScoringMode:
-    def test_default_cursor(self):
+    def test_default_hybrid(self):
+        assert scoring_mode({"scoring_mode": "hybrid"}) == "hybrid"
         assert scoring_mode({"scoring_mode": "cursor"}) == "cursor"
         assert scoring_mode({"scoring_mode": "rules"}) == "rules"
-        assert scoring_mode({"scoring_mode": "weird"}) == "cursor"
+        assert scoring_mode({"scoring_mode": "weird"}) == "hybrid"
 
     def test_python_only_forces_rules(self):
-        assert scoring_mode({"scoring_mode": "cursor", "python_only": True}) == "rules"
+        assert scoring_mode({"scoring_mode": "hybrid", "python_only": True}) == "rules"
+
+
+class TestHybridScoring:
+    def test_prefilter_skips_cursor(self):
+        cfg = {
+            "scoring_mode": "hybrid",
+            "score_threshold": 70,
+            "hybrid_rules_min": 60,
+            "salary_floor": 120000,
+            "cursor_api_key": "test-key",
+        }
+        with patch("radar.cursor_score._via_cursor") as cur:
+            sc, reasons, ok, meta = score_for_search(
+                title="Java backend onsite only",
+                snippet="Java Spring office Moscow no remote",
+                schedule="office",
+                cfg=cfg,
+            )
+        cur.assert_not_called()
+        assert meta["source"] == "hybrid_prefilter"
+
+    def test_hybrid_cursor_fallback_to_rules(self):
+        cfg = {
+            "scoring_mode": "hybrid",
+            "score_threshold": 70,
+            "hybrid_rules_min": 60,
+            "salary_floor": 120000,
+            "cursor_api_key": "test-key",
+        }
+        with patch("radar.cursor_score._api_key", return_value="test-key"):
+            with patch("radar.cursor_score.BRIDGE") as br:
+                br.exists.return_value = True
+                with patch("radar.cursor_score._via_cursor", return_value=None):
+                    sc, reasons, ok, meta = score_for_search(
+                        title="Vue 3 TypeScript remote Middle",
+                        snippet="Vue3 TypeScript remote Middle Pinia",
+                        schedule="remote",
+                        cfg=cfg,
+                    )
+        assert meta["source"] == "hybrid_rules_fallback"
+        assert ok is True
+        assert sc >= 70
 
 
 class TestScoreForSearchRules:

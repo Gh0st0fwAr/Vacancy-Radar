@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from .config import QUEUE_PATH, SEEN_PATH, load_json, save_json
 from .refusal import vacancy_looks_refused
@@ -161,6 +161,22 @@ class QueueStore:
                     break
         if persist:
             self.save()
+
+    def in_queue(self, url: str) -> bool:
+        nid = norm_url(url)
+        return bool(nid) and any(norm_url(v.url) == nid for v in self.items)
+
+    def forget_seen(self, urls: Iterable[str], *, persist: bool = True) -> int:
+        """Remove URLs from seen so search can rescore them."""
+        removed = 0
+        for u in urls:
+            nid = norm_url(u)
+            if nid and nid in self.seen:
+                self.seen.discard(nid)
+                removed += 1
+        if removed and persist:
+            self.save()
+        return removed
 
     def remember(self, url: str, *, persist: bool = True) -> None:
         """Mark URL as seen without adding to queue (skip future search/score)."""

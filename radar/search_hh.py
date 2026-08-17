@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from .cdp import CdpError, CdpSession, open_and_eval, open_session
 from .chrome_ctl import open_url_fast
@@ -13,6 +14,7 @@ from .cover_letter import make_cover_letter
 from .queue_store import QueueStore, Vacancy, norm_url
 from .refusal import text_looks_like_refusal
 from .cursor_score import score_for_search
+from .scorer import score_vacancy as score_vacancy_rules
 from .config import EXCLUDE_FILE, ROUNDS_GLOB, load_config, load_json
 from .metrics_log import append_event
 
@@ -116,19 +118,84 @@ JS_VACANCY_FULL = r"""
 """
 
 
-def load_excludes() -> set:
+def load_excludes(cfg: Optional[dict] = None) -> set:
+    cfg = cfg or load_config()
     out = set()
     data = load_json(EXCLUDE_FILE, {})
     for u in data.get("exclude_links") or []:
         out.add(norm_url(u))
-    try:
-        for p in ROUNDS_GLOB.glob("*круг вакансий*.md"):
-            text = p.read_text(encoding="utf-8", errors="ignore")
-            for m in re.findall(r"https?://(?:www\.)?hh\.ru/vacancy/\d+", text):
-                out.add(norm_url(m))
-    except Exception:
-        pass
+    if bool(cfg.get("exclude_manual_rounds", False)):
+        try:
+            for p in ROUNDS_GLOB.glob("*круг вакансий*.md"):
+                text = p.read_text(encoding="utf-8", errors="ignore")
+                for m in re.findall(r"https?://(?:www\.)?hh\.ru/vacancy/\d+", text):
+                    out.add(norm_url(m))
+        except Exception:
+            pass
     return out
+
+
+def _serp_page_url(base: str, page: int) -> str:
+    parsed = urlparse(base)
+    q = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    if page <= 0:
+        q.pop("page", None)
+    else:
+        q["page"] = str(page)
+    return urlunparse(parsed._replace(query=urlencode(q)))
+
+
+def _rules_snippet_pass(c: dict, cfg: dict) -> bool:
+    hybrid_min = int(cfg.get("hybrid_rules_min") or 60)
+    title = (c.get("title") or "").strip()
+    snippet = c.get("snippet") or ""
+    salary = (c.get("salary") or "").strip()
+    sc, _, ok = score_vacancy_rules(
+        title,
+        snippet,
+        salary_text=salary,
+        schedule="удалённо",
+        salary_floor=int(cfg.get("salary_floor") or 120000),
+        salary_good=int(cfg.get("salary_good") or 140000),
+        gate_threshold=hybrid_min,
+    )
+    return bool(ok or sc >= hybrid_min)
+
+
+def _collect_serp_cards(
+    session: CdpSession,
+    base_url: str,
+    max_pages: int,
+    on_progress: Optional[Callable[[str], None]] = None,
+) -> tuple[List[dict], dict]:
+    all_cards: List[dict] = []
+    seen_urls: set[str] = set()
+    last_href = base_url
+    pages_done = 0
+    for page in range(max(1, max_pages)):
+        page_url = _serp_page_url(base_url, page)
+        if on_progress:
+            on_progress(f"SERP {page + 1}/{max_pages}…")
+        session.navigate(page_url, settle=2.2 if page == 0 else 1.7)
+        data = session.evaluate(JS_CARDS, timeout=15) or {}
+        if data.get("needLogin"):
+            return all_cards, {"needLogin": True, "href": data.get("href") or page_url}
+        last_href = str(data.get("href") or page_url)
+        cards = data.get("cards") or []
+        new_on_page = 0
+        for c in cards:
+            link = norm_url(c.get("url") or "")
+            if not link or link in seen_urls:
+                continue
+            seen_urls.add(link)
+            all_cards.append(c)
+            new_on_page += 1
+        if on_progress:
+            on_progress(f"SERP {page + 1}: карточек {len(cards)}, новых {new_on_page}, всего {len(all_cards)}")
+        if page > 0 and new_on_page == 0:
+            break
+        pages_done = page + 1
+    return all_cards, {"needLogin": False, "href": last_href, "pages": pages_done}
 
 
 def _fetch_vacancy_details(session: CdpSession, url: str, settle: float) -> Optional[dict]:
@@ -140,61 +207,84 @@ def _fetch_vacancy_details(session: CdpSession, url: str, settle: float) -> Opti
         return None
 
 
-def search_once(store: QueueStore) -> Dict:
+def search_once(
+    store: QueueStore,
+    *,
+    clear_check: bool = False,
+    on_progress: Optional[Callable[[str], None]] = None,
+) -> Dict:
     cfg = load_config()
-    threshold = int(cfg.get("score_threshold") or 65)
+    threshold = int(cfg.get("score_threshold") or 70)
     url = cfg.get("hh_search_url")
-    excludes = load_excludes()
+    excludes = load_excludes(cfg)
     deep = bool(cfg.get("deep_score", True))
     settle = float(cfg.get("vacancy_settle_sec") or 1.1)
-    max_deep = int(cfg.get("deep_score_max") or 50)
+    if clear_check:
+        max_pages = int(cfg.get("clear_check_max_pages") or 10)
+        max_deep = 0
+    else:
+        max_pages = int(cfg.get("serp_max_pages") or 6)
+        max_deep = int(cfg.get("deep_score_max") or 50)
     added = []
     skipped = 0
     deep_opened = 0
+    serp_pages = 0
     t0 = time.time()
 
-    # Deep scan держит Chrome дольше: SERP + N страниц вакансий.
-    lock_timeout = 360.0 if deep else 100.0
+    per_vac = 18.0 if deep else 4.0
+    lock_timeout = float(cfg.get("clear_check_timeout_sec") or 900) if clear_check else max(
+        360.0, 80.0 + max_deep * per_vac
+    )
+
+    def prog(msg: str) -> None:
+        if on_progress:
+            on_progress(msg)
 
     try:
         with chrome_exclusive(timeout=lock_timeout):
             session = open_session(url)
             try:
-                session.navigate(url, settle=2.2)
-                data = session.evaluate(JS_CARDS, timeout=15) or {}
-                if data.get("needLogin"):
+                cards, serp_meta = _collect_serp_cards(session, url or "", max_pages, on_progress=prog)
+                serp_pages = int(serp_meta.get("pages") or 0)
+                if serp_meta.get("needLogin"):
                     return {
                         "ok": False,
                         "error": "Нужен вход в HH. Нажмите «Войти в HH / Открыть Chrome» и залогиньтесь.",
                         "added": [],
                         "checked": 0,
+                        "clear_check": clear_check,
                     }
 
-                cards = data.get("cards") or []
+                if clear_check:
+                    serp_links = [norm_url(c.get("url") or "") for c in cards]
+                    cleared = store.forget_seen(serp_links)
+                    prog(f"Clear Check: сброшено seen для {cleared} URL с SERP")
+
                 candidates: List[dict] = []
                 for c in cards:
                     link = norm_url(c.get("url") or "")
                     if not link or link in excludes:
                         skipped += 1
                         continue
-                    # Already in queue / previously scored or remembered — no rescore, no letter
-                    if store.known(link):
+                    if store.in_queue(link):
                         skipped += 1
                         continue
-                    # HH SERP "visited" (opened in Chrome) — remember, do NOT score again
-                    # (иначе Cursor SDK сжигает токены на одни и те же карточки каждый цикл).
-                    if c.get("visited"):
-                        store.remember(link)
-                        skipped += 1
-                        continue
+                    if c.get("visited") and not clear_check:
+                        if not _rules_snippet_pass(c, cfg):
+                            skipped += 1
+                            continue
+                    elif link in store.seen and not clear_check:
+                        store.seen.discard(link)
                     candidates.append(c)
 
-                if deep:
+                if max_deep > 0:
                     candidates = candidates[: max(0, max_deep)]
 
-                for c in candidates:
+                prog(f"К deep-score: {len(candidates)} карточек (пропущено {skipped})")
+
+                for idx, c in enumerate(candidates, start=1):
                     link = norm_url(c.get("url") or "")
-                    if not link or store.known(link):
+                    if not link or store.in_queue(link):
                         skipped += 1
                         continue
                     title = (c.get("title") or "").strip() or "Без названия"
@@ -205,6 +295,7 @@ def search_once(store: QueueStore) -> Dict:
                     snippet = c.get("snippet") or ""
 
                     if deep:
+                        prog(f"[{idx}/{len(candidates)}] {title[:60]}…")
                         details = _fetch_vacancy_details(session, link, settle=settle)
                         deep_opened += 1
                         if details and details.get("needLogin"):
@@ -215,6 +306,7 @@ def search_once(store: QueueStore) -> Dict:
                                 "checked": skipped + deep_opened,
                                 "deep_opened": deep_opened,
                                 "elapsed_sec": round(time.time() - t0, 1),
+                                "clear_check": clear_check,
                             }
                         if details and (details.get("text") or "").strip():
                             snippet = str(details.get("text") or "")
@@ -238,8 +330,6 @@ def search_once(store: QueueStore) -> Dict:
                     )
                     src = str((score_meta or {}).get("source") or "rules")
                     reasons = list(reasons) + [f"score:{src}"]
-                    # Any scored URL is remembered so Cursor is not billed again next tick
-                    store.remember(link)
                     if text_looks_like_refusal(snippet, title) or (
                         reasons and any("refusal" in r.lower() or "Отказ" in r for r in reasons)
                     ):
@@ -247,11 +337,11 @@ def search_once(store: QueueStore) -> Dict:
                         skipped += 1
                         continue
                     if not ok or sc < threshold:
+                        store.remember(link)
                         skipped += 1
+                        prog(f"  {sc}% — ниже порога {threshold}")
                         continue
 
-                    # Cursor branch: do NOT insert universal local template.
-                    # Store full vacancy text; letter comes from Cursor upgrade (unique per vacancy).
                     want_cursor_letter = bool(cfg.get("cover_letter_via_cursor", True)) and not bool(
                         cfg.get("python_only", False)
                     )
@@ -285,16 +375,17 @@ def search_once(store: QueueStore) -> Dict:
                     )
                     if store.add(v):
                         added.append(v)
+                        prog(f"  +{sc}% → очередь: {title[:50]}")
                     else:
                         skipped += 1
             finally:
                 session.close()
     except TimeoutError as e:
-        return {"ok": False, "error": str(e), "added": [], "checked": 0}
+        return {"ok": False, "error": str(e), "added": [], "checked": 0, "clear_check": clear_check}
     except CdpError as e:
-        return {"ok": False, "error": str(e), "added": [], "checked": 0}
+        return {"ok": False, "error": str(e), "added": [], "checked": 0, "clear_check": clear_check}
     except Exception as e:
-        return {"ok": False, "error": str(e), "added": [], "checked": 0}
+        return {"ok": False, "error": str(e), "added": [], "checked": 0, "clear_check": clear_check}
 
     elapsed = round(time.time() - t0, 1)
     result = {
@@ -303,10 +394,12 @@ def search_once(store: QueueStore) -> Dict:
         "checked": skipped + len(added),
         "skipped": skipped,
         "deep_opened": deep_opened,
+        "serp_pages": serp_pages,
         "elapsed_sec": elapsed,
         "error": "",
         "href": url or "",
         "letter_upgrade_urls": [v.url for v in added],
+        "clear_check": clear_check,
     }
     try:
         append_event(
@@ -319,6 +412,8 @@ def search_once(store: QueueStore) -> Dict:
             skipped=skipped,
             deep_opened=deep_opened,
             deep=bool(deep),
+            clear_check=clear_check,
+            serp_pages=serp_pages,
         )
     except Exception:
         pass
