@@ -2,17 +2,21 @@ VacancyRadar (Настя) — запуск из этой папки
 
 На компьютере нужно:
 - Windows
-- Python 3.9+
+- Python 3.9+ (галочка Add python.exe to PATH)
 - Google Chrome
+- интернет на первый запуск (ставится PySide6 и остальные пакеты)
 
-1. Откройте эту папку в cmd или PowerShell.
-2. pip install -r requirements.txt
-3. Start VacancyRadar.bat
-   или: python main.py
+1. Откройте эту папку.
+2. Start VacancyRadar.bat
+   Батник сам выполнит: python -m pip install -r requirements.txt
+   затем python main.py
 
-Профиль поиска и писем уже в data/config.json.
-Резюме: data/nstyacv.pdf
-Исключения дублей: data/_vacancy_exclude.json
+Если окно сразу падает с ModuleNotFoundError (например No module named 'websocket'):
+в этой же папке выполните и снова запустите батник:
+
+  python -m pip install -r requirements.txt
+
+Не ставьте пакет с именем websocket — нужен websocket-client.
 
 После старта: вкладка Stats → Open HH / Chrome login → войдите в hh.ru
 в открывшемся Chrome Radar. Затем Check connection.
