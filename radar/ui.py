@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from radar.clipboard_util import set_clipboard
 from radar.config import (
     ASSETS,
+    CONFIG_PATH,
     LOG_PATH,
     NEGOTIATIONS_PATH,
     STATS_PATH,
@@ -84,7 +85,10 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("VacancyRadar")
+        self.cfg = load_config()
+        role = (self.cfg.get("candidate_role") or "VacancyRadar").strip()
+        self.setWindowTitle("VacancyRadar — " + role)
+        log("config " + str(CONFIG_PATH) + " · " + role + " · port " + str(self.cfg.get("chrome_debug_port")))
         # Large default; showMaximized in run() so type/spacing match browser prototype.
         self.resize(1600, 960)
         self.setMinimumSize(1280, 800)
@@ -92,8 +96,10 @@ class MainWindow(QMainWindow):
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
 
-        self.cfg = load_config()
         self.store = QueueStore()
+        dropped = self.store.drop_foreign_profile(self.cfg)
+        if dropped:
+            log(f"Сброшена чужая очередь ({dropped} Vue/frontend карточек). Профиль: {role}")
         self._bridges = []
         self._busy_search = False
         self._busy_stats = False

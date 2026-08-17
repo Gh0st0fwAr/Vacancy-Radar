@@ -203,6 +203,26 @@ class QueueStore:
         self.save()
         return True
 
+    def drop_foreign_profile(self, cfg: Optional[dict] = None) -> int:
+        """Drop Vue/frontend leftovers if this clone is a designer profile."""
+        role = ((cfg or {}).get("candidate_role") or "").lower()
+        if "дизайнер" not in role and "маркетплейс" not in role:
+            return 0
+        keep: List[Vacancy] = []
+        dropped = 0
+        for v in self.items:
+            t = (v.title or "").lower()
+            if any(x in t for x in ("vue", "nuxt", "frontend", "fullstack", "react", "angular")):
+                dropped += 1
+                continue
+            keep.append(v)
+        if dropped:
+            self.items = keep
+            self.pointer = 0
+            self.active_url = ""
+            self.save()
+        return dropped
+
     _STATUS_RANK = {"new": 0, "visited": 1, "skipped": 2, "applied": 3}
 
     def mark(self, url: str, status: str) -> None:

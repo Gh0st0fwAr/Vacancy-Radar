@@ -105,7 +105,7 @@
   "sound_enabled": true,
   "dnd": false,
   "hotkey": "ctrl+alt+q",
-  "chrome_debug_port": 9222,
+  "chrome_debug_port": 9223,
   "ui_zoom": 1.35,
   "ui_theme": "04",
   "minimize_previous": false,
