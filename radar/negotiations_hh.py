@@ -226,7 +226,7 @@ def scrape_negotiations(session) -> List[Dict[str, Any]]:
 
 def apply_negotiations(store: QueueStore, items: List[Dict[str, Any]]) -> Dict[str, int]:
     items = items or []
-    added = updated = removed = 0
+    added = updated = removed = promoted = 0
     by_url: Dict[str, Dict[str, Any]] = {}
     by_title_co: Dict[str, Dict[str, Any]] = {}
     for it in items:
@@ -262,6 +262,8 @@ def apply_negotiations(store: QueueStore, items: List[Dict[str, Any]]) -> Dict[s
                 v.hh_tag = tag
                 changed = True
             if hh in APPLIED_HH and v.status not in ("banned", "skipped") and v.status != "applied":
+                if v.status == "visited":
+                    promoted += 1
                 v.status = "applied"
                 changed = True
             if changed:
@@ -315,7 +317,7 @@ def apply_negotiations(store: QueueStore, items: List[Dict[str, Any]]) -> Dict[s
     store.items.sort(key=sort_key)
     store.purge_refused(persist=False)
     store.save()
-    return {"added": added, "updated": updated, "removed": removed, "total": len(items)}
+    return {"added": added, "updated": updated, "removed": removed, "promoted": promoted, "total": len(items)}
 
 
 def badge_for(v: Vacancy) -> str:

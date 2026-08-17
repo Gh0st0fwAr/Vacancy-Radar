@@ -43,6 +43,7 @@
     if (kind === "pointer") return "pill-now";
     if (kind === "invite") return "pill-invite";
     if (kind === "apply") return "pill-applied";
+    if (kind === "visited") return "pill-seen";
     return "pill-new";
   }
 
@@ -50,6 +51,7 @@
     if (kind === "pointer") return "is-pointer";
     if (kind === "invite") return "is-invite";
     if (kind === "apply") return "is-apply";
+    if (kind === "visited") return "is-visited";
     return "is-new";
   }
 
@@ -302,8 +304,8 @@
     onEvent: function (event, data) {
       data = data || {};
       if (event === "queue") {
-        state.items = data.items || [];
-        state.counts = data.counts || state.counts;
+        if (data.items) state.items = data.items;
+        if (data.counts) state.counts = data.counts;
         if (data.selectedUrl) state.selectedUrl = data.selectedUrl;
         renderList();
         renderStrip();
@@ -331,6 +333,24 @@
       } else if (event === "busy") {
         state.busy = Object.assign({}, state.busy, data);
         renderBusy();
+      } else if (event === "activity") {
+        const bar = document.getElementById("activity-bar");
+        const txt = document.getElementById("activity-text");
+        if (!bar || !txt) return;
+        if (data.busy) {
+          bar.hidden = false;
+          bar.classList.add("is-busy");
+          txt.textContent = data.line || "Working…";
+        } else {
+          bar.classList.remove("is-busy");
+          if (data.line) {
+            bar.hidden = false;
+            txt.textContent = data.line;
+          } else {
+            bar.hidden = true;
+            txt.textContent = "—";
+          }
+        }
       } else if (event === "page") {
         showPage(data.name || "queue");
       }

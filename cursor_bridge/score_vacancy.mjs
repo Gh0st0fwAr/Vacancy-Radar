@@ -59,7 +59,7 @@ CANONICAL CONTEXT LINKS:
 - Portfolio: ${portfolioUrl}
 - Portfolio (same): https://Gh0st0fwAr.github.io/
 - GitHub: ${githubUrl}
-Do not refuse scoring if URLs cannot be fetched — context is already embedded below.
+Do not refuse scoring if URLs cannot be fetched ï¿½ context is already embedded below.
 
 ${candidate}
 
@@ -80,7 +80,9 @@ ${description || "(empty)"}
 Queue threshold: ${threshold}.
 Return ONLY one JSON object (no markdown):
 {"score":0-100,"accept":true|false,"reasons":["short reason 1","..."]}
-If accept=true, score should be >= ${threshold}. reasons: 2-6 short items (RU or EN) about FIT.`;
+accept=true only if the candidate is a genuine FIT for this role (not just keyword overlap).
+Do not inflate score to meet threshold ï¿½ be honest; sub-threshold fit ? accept=false.
+reasons: 2-6 short items (RU or EN) about FIT.`;
 }
 
 function extractJson(text) {
@@ -122,7 +124,7 @@ async function main() {
 
   if (!String(payload.candidateProfile || "").trim()) {
     process.stderr.write(
-      "WARN: candidateProfile empty — missing cvddv/portfolio block from Python\n"
+      "WARN: candidateProfile empty ï¿½ missing cvddv/portfolio block from Python\n"
     );
   }
 

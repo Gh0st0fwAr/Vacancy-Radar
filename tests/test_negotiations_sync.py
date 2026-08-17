@@ -196,6 +196,40 @@ class TestApplyHighlightFields:
         assert store.items[0].hh_status == "awaiting"
         assert store.items[0].status == "applied"
 
+    def test_visited_becomes_applied_on_awaiting(self, tmp_path, monkeypatch):
+        from radar import negotiations_hh as nh
+        from radar import queue_store as qs
+
+        monkeypatch.setattr(nh, "NEGOTIATIONS_PATH", tmp_path / "n.json")
+        monkeypatch.setattr(qs, "QUEUE_PATH", tmp_path / "q.json")
+        monkeypatch.setattr(qs, "SEEN_PATH", tmp_path / "s.json")
+
+        store = _store(
+            Vacancy(
+                id="1",
+                title="Vue 3",
+                company="FitCo",
+                url="https://hh.ru/vacancy/135560619",
+                score=90,
+                status="visited",
+            )
+        )
+        sync = apply_negotiations(
+            store,
+            [
+                {
+                    "url": "https://hh.ru/vacancy/135560619",
+                    "title": "Vue 3",
+                    "company": "FitCo",
+                    "hh_status": "awaiting",
+                    "tag": "Не просмотрен",
+                }
+            ],
+        )
+        assert sync["promoted"] == 1
+        assert store.items[0].status == "applied"
+        assert store.items[0].hh_status == "awaiting"
+
 
 class TestBgTimeoutRaceLogic:
     """Mirrors ui._run_bg done-flag behaviour without Qt."""

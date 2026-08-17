@@ -184,7 +184,12 @@ def _via_cursor(
         if len(letter) < 200 or "Портфолио:" not in letter:
             raise RuntimeError("Cursor returned empty/broken letter")
         return _sanitize(letter), meta
-    except Exception:
+    except Exception as e:
+        meta["error"] = str(e)[:240]
+        try:
+            append_event("letter", title=title[:120], source="cursor_failed", error=meta["error"])
+        except Exception:
+            pass
         return None, meta
 
 

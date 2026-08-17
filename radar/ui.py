@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import threading
 import traceback
+from collections import deque
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer, Signal, QObject
@@ -31,7 +32,7 @@ from radar.chrome_ctl import launch_chrome_for_login, check_connection_fast
 from radar.guides import GUIDE_HOTKEY, GUIDE_STATS
 from radar.hotkeys import HotkeyManager, hotkey_label
 from radar.queue_store import QueueStore
-from radar.search_hh import open_vacancy_and_prepare, search_once, upgrade_cover_letters
+from radar.search_hh import generate_one_letter, open_vacancy_and_prepare, search_once, upgrade_cover_letters
 from radar.cover_letter import _api_key, is_stale_template
 from radar.sounds import (
     announce_search,
@@ -49,7 +50,7 @@ from radar.queue_style import is_blue, pill_label, status_kind
 from radar.stats_hh import fetch_stats
 from radar.theme import THEME_LABELS, apply_app_font, apply_theme
 from radar.themes import THEME_IDS
-from radar.web_host import WebUiHost
+from radar.win_hotkey import WindowsGlobalHotkey
 
 
 def log(msg: str) -> None:
@@ -97,9 +98,17 @@ class MainWindow(QMainWindow):
         self.hotkeys.start()
         self.hotkey_hit.connect(self.on_hotkey)
         self.hotkey_captured.connect(self.on_hotkey_captured)
-        self.search_progress.connect(self.append_log)
+        self.search_progress.connect(self._on_search_progress)
+        self._activity_last_ts = 0.0
+        self._activity_last_log_ts = 0.0
+        self._letter_q: deque[str] = deque()
+        self._letter_inflight: set[str] = set()
+        self._letter_n = 0
+        self._letter_beep_url = ""
+        self._win_hotkey = None
 
         self._build_ui()
+        self._install_win_hotkey()
         self._build_tray()
         self.refresh_queue_list()
         self.refresh_stats_labels()
@@ -112,6 +121,14 @@ class MainWindow(QMainWindow):
 
         self.statusBar().showMessage("Готово. Сначала: Войти в HH / Открыть Chrome")
         QTimer.singleShot(300, self.auto_boot_chrome)
+        QTimer.singleShot(1200, self._kick_pending_letters)
+
+    def _kick_pending_letters(self) -> None:
+        urls = self._pending_letter_urls()
+        if not urls:
+            return
+        self.append_log(f"Письма: {len(urls)} без текста Cursor — ставлю в очередь")
+        self.enqueue_letters(urls)
 
     def auto_boot_chrome(self):
         self.append_log("Запускаю Chrome Radar для сессии HH…")
@@ -128,6 +145,112 @@ class MainWindow(QMainWindow):
         # offset stats so it doesn't start in the same second as search
         self.stats_timer.stop()
         QTimer.singleShot(45_000, lambda: self.stats_timer.start(stats_ms))
+
+    def _install_win_hotkey(self) -> None:
+        combo = str(self.cfg.get("hotkey") or "ctrl+alt+q")
+        if self._win_hotkey is not None:
+            try:
+                self._win_hotkey.stop()
+            except Exception:
+                pass
+            self._win_hotkey = None
+        self.hotkeys.suppress_fire = False
+        try:
+            hk = WindowsGlobalHotkey(self, combo, lambda: self.hotkey_hit.emit())
+            if hk.start():
+                self._win_hotkey = hk
+                self.hotkeys.suppress_fire = True
+                self.append_log(f"Глобальный хоткей (Windows): {combo} — работает и вне окна Radar")
+                return
+        except Exception as e:
+            self.append_log(f"RegisterHotKey: {e}")
+        self.append_log("Глобальный хоткей: fallback pynput (строго проверяю Ctrl)")
+
+    def _pending_letter_urls(self, only=None):
+        out = []
+        for v in self.store.items:
+            if only is not None and v.url not in only:
+                continue
+            if v.status in ("banned", "skipped", "applied"):
+                continue
+            src = (v.letter_source or "").strip().lower()
+            if src == "cursor" and (v.cover_letter or "").strip():
+                continue
+            out.append(v.url)
+        return out
+
+    def enqueue_letters(self, urls, *, front: bool = False, beep_url: str = "") -> None:
+        if beep_url:
+            self._letter_beep_url = beep_url
+        for u in urls or []:
+            if not u or u in self._letter_inflight:
+                continue
+            if u in self._letter_q:
+                if front:
+                    self._letter_q.remove(u)
+                    self._letter_q.appendleft(u)
+                continue
+            if front:
+                self._letter_q.appendleft(u)
+            else:
+                self._letter_q.append(u)
+        n = len(self._letter_q) + len(self._letter_inflight)
+        if n:
+            self._set_activity(busy=True, line=f"Письма Cursor в очереди: {n}")
+        self._letter_pump()
+
+    def _letter_pump(self) -> None:
+        max_w = max(1, min(int(self.cfg.get("cursor_letter_workers") or 5), 6))
+        while self._letter_n < max_w and self._letter_q:
+            url = self._letter_q.popleft()
+            self._letter_inflight.add(url)
+            self._letter_n += 1
+            v = next((x for x in self.store.items if x.url == url), None)
+            title = ((v.title if v else "") or "")[:42]
+            self._set_activity(busy=True, line=f"Письмо: {title}…")
+            self.append_log(f"Письмо Cursor → «{title}»")
+            timeout = int(self.cfg.get("cover_letter_timeout_sec") or 90) + 20
+            self._run_bg(
+                lambda u=url: generate_one_letter(self.store, u),
+                lambda r, u=url: self._on_letter_one(u, r),
+                on_fail=lambda err, u=url: self._on_letter_one(
+                    u, {"ok": False, "error": err, "url": u}
+                ),
+                timeout_sec=timeout,
+                on_timeout=lambda u=url: self._on_letter_one(
+                    u, {"ok": False, "error": "timeout", "url": u}
+                ),
+            )
+
+    def _on_letter_one(self, url: str, result) -> None:
+        late = url not in self._letter_inflight
+        if not late:
+            self._letter_inflight.discard(url)
+            self._letter_n = max(0, self._letter_n - 1)
+        ok = bool((result or {}).get("ok"))
+        title = str((result or {}).get("title") or "")[:42]
+        if ok:
+            self.append_log(f"Письмо готово: {title}")
+            self.refresh_queue_list()
+            target = self._letter_beep_url or self.store.active_url or self.selected_url()
+            if url == target:
+                v = next((x for x in self.store.items if x.url == url), None)
+                if v and self._letter_ready(v):
+                    self._copy_letter_ui(v.cover_letter)
+                    self._push_detail(v.url)
+                    if sound_allowed(self.cfg):
+                        beep_double()
+                        self.append_log("Письмо в буфере (двойной писк)")
+            elif self._selected_url == url:
+                self._push_detail(url)
+        elif not late:
+            self.append_log("Письмо FAIL: " + str((result or {}).get("error") or "")[:180])
+        left = len(self._letter_q) + self._letter_n
+        if left:
+            self._set_activity(busy=True, line=f"Письма: ещё {left}")
+            self._letter_pump()
+        else:
+            self._set_activity(busy=False, line="Письма: очередь пуста")
 
     def _build_ui(self):
         self._selected_url = ""
@@ -179,7 +302,7 @@ class MainWindow(QMainWindow):
                 "autostart_enabled": bool(self.cfg.get("autostart_enabled", False))
                 or is_autostart_enabled(),
                 "ui_theme": str(self.cfg.get("ui_theme") or "04"),
-                "scoring_mode": str(self.cfg.get("scoring_mode") or "hybrid"),
+                "scoring_mode": str(self.cfg.get("scoring_mode") or "cursor"),
                 "themes": [{"id": t, "label": THEME_LABELS.get(t, t)} for t in THEME_IDS],
             },
         )
@@ -189,7 +312,8 @@ class MainWindow(QMainWindow):
             return
         self._selected_url = url
         self._push_detail(url)
-        self.refresh_queue_list()
+        if hasattr(self, "web"):
+            self.web.push("queue", {"selectedUrl": url})
 
     def _web_guide(self, name: str):
         if name == "stats":
@@ -206,8 +330,8 @@ class MainWindow(QMainWindow):
         if "minimize_previous" in p:
             self.cfg["minimize_previous"] = bool(p.get("minimize_previous"))
         if "scoring_mode" in p:
-            mode = str(p.get("scoring_mode") or "hybrid").strip().lower()
-            self.cfg["scoring_mode"] = mode if mode in ("cursor", "rules", "hybrid") else "hybrid"
+            mode = str(p.get("scoring_mode") or "cursor").strip().lower()
+            self.cfg["scoring_mode"] = mode if mode in ("cursor", "rules") else "cursor"
             self.append_log("Scoring mode: " + str(self.cfg["scoring_mode"]))
         if "autostart_enabled" in p:
             want = bool(p.get("autostart_enabled"))
@@ -240,7 +364,14 @@ class MainWindow(QMainWindow):
             s = str(r).strip()
             if s and len(s) < 40:
                 skills.append(s)
+        score_src = ""
+        for r in v.reasons or []:
+            rs = str(r)
+            if rs.startswith("score:"):
+                score_src = rs.replace("score:", "", 1)
+                break
         facts = [
+            {"label": "Scoring", "value": score_src or "?"},
             {"label": "Location", "value": "Remote" if v.remote else "?"},
             {"label": "Employment", "value": "Full-time"},
             {"label": "Salary", "value": v.salary or "?"},
@@ -304,40 +435,57 @@ class MainWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
-    def _minimize_previous_if_needed(self):
-        """Свернуть чужое окно, но не Chrome и не сам VacancyRadar (режим F11/maximize)."""
-        if not self.cfg.get("minimize_previous"):
-            return
+    def _minimize_all_except_radar_chrome(self):
+        """Minimize every visible window except Chrome and VacancyRadar, then Z-order: Chrome > Radar."""
         try:
             import ctypes
             from ctypes import wintypes
 
             user32 = ctypes.windll.user32
-            hwnd = user32.GetForegroundWindow()
-            if not hwnd:
-                return
-            # Не трогаем себя
-            try:
-                self_hwnd = int(self.winId())
+            self_hwnd = int(self.winId())
+            chrome_hwnd = None
+            hwnds_to_minimize = []
+
+            @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+            def enum_cb(hwnd, _):
+                nonlocal chrome_hwnd
+                if not user32.IsWindowVisible(hwnd):
+                    return True
                 if hwnd == self_hwnd:
-                    return
-            except Exception:
-                pass
-            length = user32.GetWindowTextLengthW(hwnd)
-            buf = ctypes.create_unicode_buffer(length + 1)
-            user32.GetWindowTextW(hwnd, buf, length + 1)
-            title = (buf.value or "").lower()
-            # Не сворачиваем Chrome / HH — иначе слетает fullscreen.
-            if (
-                "chrome" in title
-                or "hh.ru" in title
-                or "vacancyradar" in title
-                or "headhunter" in title
-            ):
-                return
-            user32.ShowWindow(hwnd, 6)  # SW_MINIMIZE
+                    return True
+                length = user32.GetWindowTextLengthW(hwnd)
+                if length == 0:
+                    return True
+                buf = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buf, length + 1)
+                title = (buf.value or "").lower()
+                if not title or title == "program manager":
+                    return True
+                if "chrome" in title or "hh.ru" in title or "headhunter" in title:
+                    chrome_hwnd = hwnd
+                    return True
+                hwnds_to_minimize.append(hwnd)
+                return True
+
+            user32.EnumWindows(enum_cb, 0)
+
+            SW_MINIMIZE = 6
+            for hwnd in hwnds_to_minimize:
+                user32.ShowWindow(hwnd, SW_MINIMIZE)
+
+            state = self.windowState()
+            if state & Qt.WindowMinimized:
+                self.setWindowState(state & ~Qt.WindowMinimized)
+            self.show()
+            self.raise_()
+
+            if chrome_hwnd:
+                SW_RESTORE = 9
+                if user32.IsIconic(chrome_hwnd):
+                    user32.ShowWindow(chrome_hwnd, SW_RESTORE)
+                user32.SetForegroundWindow(chrome_hwnd)
         except Exception:
-            return
+            pass
 
     def append_log(self, msg: str):
         log(msg)
@@ -349,6 +497,27 @@ class MainWindow(QMainWindow):
         if hasattr(self, "web"):
             self.web.push("log", {"line": msg, "lines": list(self._log_lines)})
         self.statusBar().showMessage(msg[:120])
+
+    def _on_search_progress(self, msg: str) -> None:
+        """GUI-thread only. Throttle WebEngine updates so Clear Check doesn't freeze Windows."""
+        import time as _time
+
+        now = _time.monotonic()
+        s = (msg or "").lstrip()
+        detail = s.startswith("[") or s.startswith("письмо") or s.startswith("+")
+        phase = not detail
+        if phase or now - self._activity_last_ts >= 0.35:
+            self._activity_last_ts = now
+            self._set_activity(busy=True, line=msg)
+        if phase or now - self._activity_last_log_ts >= 2.0:
+            self._activity_last_log_ts = now
+            self.append_log(msg)
+
+    def _set_activity(self, *, busy: bool, line: str = "") -> None:
+        if hasattr(self, "web"):
+            self.web.push("activity", {"busy": bool(busy), "line": line or ""})
+        if line:
+            self.statusBar().showMessage(line[:120])
 
     def save_opts(self):
         save_config(self.cfg)
@@ -402,7 +571,7 @@ class MainWindow(QMainWindow):
                     "blue": is_blue(v),
                 }
             )
-        restore = active or prev or getattr(self, "_selected_url", "")
+        restore = prev or active or getattr(self, "_selected_url", "") or ""
         if restore:
             self._selected_url = restore
         counts = {"total": visible, "new": new_count, "applied": applied_n}
@@ -460,24 +629,34 @@ class MainWindow(QMainWindow):
 
             self.append_log("Тест хоткея: OK")
             return
+        if self._busy_open:
+            return
         if sound_allowed(self.cfg):
             beep_once()
-        if self._busy_open:
-            self.append_log("Хоткей: открытие ещё идёт — повтор игнор")
-            return
-        self.append_log("Хоткей сработал")
-        self._minimize_previous_if_needed()
-        purged = self.store.purge_refused(persist=True)
-        if purged:
-            self.append_log(f"Убрано отказов из очереди: {purged}")
-            self.refresh_queue_list()
+        self._minimize_all_except_radar_chrome()
+        threading.Thread(target=self._hotkey_purge_async, daemon=True).start()
         v = self.store.open_next()
         if not v:
             self.append_log("Очередь пуста — сначала «Искать сейчас»")
             self.show_normal_raise()
             return
-        # Не raise Radar до Chrome — иначе фокус уезжает с вкладки и кажется, что «долго».
-        self._open_vacancy(v, raise_radar=False)
+        try:
+            self._open_vacancy(v, raise_radar=False)
+        except Exception as e:
+            self._finish_open()
+            self.append_log(f"Хоткей: {e}")
+
+    def _hotkey_purge_async(self) -> None:
+        try:
+            purged = self.store.purge_refused(persist=True)
+            if purged:
+                QTimer.singleShot(0, lambda n=purged: self._hotkey_purged(n))
+        except Exception:
+            pass
+
+    def _hotkey_purged(self, purged: int) -> None:
+        self.append_log(f"Убрано отказов из очереди: {purged}")
+        self.refresh_queue_list()
 
     def _copy_letter_ui(self, text: str, *, block: bool = False) -> bool:
         """Copy letter. Default: Qt sync + clipboard async (не блокирует Chrome)."""
@@ -526,70 +705,88 @@ class MainWindow(QMainWindow):
         self._opening_url = v.url
         self._open_seq += 1
         open_seq = self._open_seq
-        QTimer.singleShot(2500, lambda seq=open_seq: self._open_busy_watchdog(seq))
-
-        import time as _time
-
-        from radar.chrome_ctl import open_url_fast
-
-        # Chrome параллельно с указателем — не ждём PowerShell/диск.
-        chrome_holder: dict = {}
-
-        def _chrome_job():
-            t0 = _time.perf_counter()
-            try:
-                chrome_holder["ok"] = bool(open_url_fast(v.url))
-            except Exception:
-                chrome_holder["ok"] = False
-            chrome_holder["ms"] = (_time.perf_counter() - t0) * 1000.0
-
-        chrome_thread = threading.Thread(target=_chrome_job, daemon=True)
-        chrome_thread.start()
+        QTimer.singleShot(10_000, lambda seq=open_seq: self._open_busy_watchdog(seq))
 
         if v.status == "new":
             v.status = "visited"
+            self.append_log("Статус: просмотрено (серый). Applied — после Update Stats, если отклик есть на HH.")
         self.store.set_active(v.url, persist=False)
-
-        letter_ok = self._letter_ready(v)
-        clip_ok = False
-        if letter_ok:
-            clip_ok = self._copy_letter_ui(v.cover_letter or "", block=False)
-
-        self._selected_url = v.url
-        self._push_detail(v.url)
-        self.refresh_queue_list()
-        self._select_url(v.url)
-        QApplication.processEvents()
-
-        if letter_ok:
-            self.append_log(
-                f"→ {v.title} · " + ("письмо в буфере" if clip_ok else "буфер — пишу в фоне")
-            )
-        else:
-            self.append_log(f"→ {v.title} · письмо догонит позже (двойной писк + буфер)")
-
-        chrome_thread.join(timeout=2.0)
-        opened = bool(chrome_holder.get("ok"))
-        open_ms = float(chrome_holder.get("ms") or 0.0)
-        self.append_log(f"▶ Chrome {'OK' if opened else 'FAIL'} за {open_ms:.0f} мс")
-
         threading.Thread(target=self.store.save, daemon=True).start()
 
-        if not opened:
+        letter_ok = self._letter_ready(v)
+        if letter_ok:
+            self._copy_letter_ui(v.cover_letter or "", block=False)
+
+        self._selected_url = v.url
+        QTimer.singleShot(0, lambda u=v.url: (self._push_detail(u), self.refresh_queue_list()))
+
+        if letter_ok:
+            self.append_log(f"→ {v.title} · " + ("письмо в буфере" if (v.cover_letter or "").strip() else "буфер…"))
+        else:
+            self.append_log(f"→ {v.title} · письмо генерируется (двойной писк, когда будет готово)")
+            self.enqueue_letters([v.url], front=True, beep_url=v.url)
+
+        def chrome_job():
+            import time as _time
+
+            from radar.chrome_ctl import open_url_fast
+
+            t0 = _time.perf_counter()
+            ok = False
+            try:
+                ok = bool(open_url_fast(v.url))
+            except Exception:
+                ok = False
+            return {"ok": ok, "ms": (_time.perf_counter() - t0) * 1000.0}
+
+        def chrome_done(result):
+            if open_seq != self._open_seq:
+                self._finish_open()
+                return
+            opened = bool((result or {}).get("ok"))
+            open_ms = float((result or {}).get("ms") or 0.0)
+            self.append_log(f"▶ Chrome {'OK' if opened else 'FAIL'} за {open_ms:.0f} мс")
+            threading.Thread(target=self.store.save, daemon=True).start()
+            if not opened:
+                self._run_bg(
+                    lambda: open_vacancy_and_prepare(v),
+                    lambda r: self._on_opened(r, open_seq),
+                    on_fail=lambda err: self._on_open_fail(err, open_seq),
+                    timeout_sec=12,
+                    on_timeout=lambda: self._on_open_timeout(open_seq),
+                )
+            else:
+                self._finish_open()
+                if raise_radar:
+                    self.show_normal_raise()
+
+        def chrome_fail(err: str):
+            if open_seq != self._open_seq:
+                self._finish_open()
+                return
+            self.append_log("Chrome: " + (err or "").splitlines()[0])
             self._run_bg(
                 lambda: open_vacancy_and_prepare(v),
-                lambda result: self._on_opened(result, open_seq),
-                on_fail=lambda err: self._on_open_fail(err, open_seq),
+                lambda r: self._on_opened(r, open_seq),
+                on_fail=lambda e: self._on_open_fail(e, open_seq),
                 timeout_sec=12,
                 on_timeout=lambda: self._on_open_timeout(open_seq),
             )
-        else:
-            self._finish_open()
-            if raise_radar:
-                self.show_normal_raise()
 
-        if not letter_ok:
-            self._start_letter_upgrade([v.url], beep_on_ready=True, focus_url=v.url)
+        def chrome_timeout():
+            if open_seq != self._open_seq:
+                self._finish_open()
+                return
+            self.append_log("Chrome: таймаут открытия — снимаю блокировку хоткея")
+            self._finish_open()
+
+        self._run_bg(
+            chrome_job,
+            chrome_done,
+            on_fail=chrome_fail,
+            timeout_sec=8,
+            on_timeout=chrome_timeout,
+        )
 
     def _open_busy_watchdog(self, open_seq: int) -> None:
         if open_seq != self._open_seq:
@@ -663,8 +860,10 @@ class MainWindow(QMainWindow):
         self.web.set_busy(search=True)
         if clear_check:
             self.append_log("Clear Check: полная перепроверка SERP (2 дня)…")
+            self._set_activity(busy=True, line="Clear Check: загрузка SERP…")
         else:
-            self.append_log("Поиск HH… (hybrid + pagination + deep text)")
+            self.append_log("Поиск HH… (Cursor parallel + письма)")
+            self._set_activity(busy=True, line="Поиск: загрузка вакансий с HH…")
 
         def on_prog(msg: str) -> None:
             self.search_progress.emit(msg)
@@ -684,21 +883,28 @@ class MainWindow(QMainWindow):
     def _on_search_timeout(self):
         self._busy_search = False
         self.web.set_busy(search=False)
+        self._set_activity(busy=False, line="Поиск: таймаут")
         self.append_log("Поиск: таймаут. Проверьте, что Chrome Radar открыт и вы залогинены.")
 
     def _on_search_fail(self, err: str):
         self._busy_search = False
         self.web.set_busy(search=False)
+        self._set_activity(busy=False, line="Поиск: ошибка")
         self.append_log("Ошибка поиска: " + (err or "").splitlines()[0])
 
     def _on_search_done(self, result):
         self._busy_search = False
         self.web.set_busy(search=False)
         if not result or not result.get("ok"):
+            self._set_activity(busy=False, line="Поиск: ошибка")
             self.append_log("Поиск: " + ((result or {}).get("error") or "ошибка"))
             return
         added = result.get("added") or []
         mode = "Clear Check" if result.get("clear_check") else "Поиск"
+        done_line = (
+            f"{mode} готово: +{len(added)} новых, {result.get('elapsed_sec', '?')}с"
+        )
+        self._set_activity(busy=False, line=done_line)
         self.append_log(
             f"{mode} OK. Новых: {len(added)}, проверено: {result.get('checked')}, "
             f"SERP стр.: {result.get('serp_pages', 0)}, deep: {result.get('deep_opened', 0)}, "
@@ -721,46 +927,19 @@ class MainWindow(QMainWindow):
                     8000,
                 )
             self.show_normal_raise()
-            urls = result.get("letter_upgrade_urls") or [v.url for v in added]
-            self._start_letter_upgrade(urls)
+        pending = self._pending_letter_urls()
+        if pending:
+            self.enqueue_letters(pending)
 
     def rebuild_letters(self):
         self.append_log("Пересобираю сопроводительные…")
-        self._start_letter_upgrade(None)
+        self.enqueue_letters(self._pending_letter_urls())
 
     def _start_letter_upgrade(self, urls, *, beep_on_ready: bool = False, focus_url: str = ""):
-        key_ok = bool(_api_key(self.cfg))
-        if not key_ok:
-            self.append_log(
-                "Cursor API key не задан → письма локально под текст вакансии. "
-                "Ключ: cursor.com/dashboard/integrations → data/config.json → cursor_api_key"
-            )
+        if urls is None:
+            self.enqueue_letters(self._pending_letter_urls(), beep_url=focus_url)
         else:
-            self.append_log("Дергаю Cursor SDK за уникальными письмами…")
-
-        url_set = set(urls) if urls is not None else None
-        focus = focus_url or ""
-
-        def job():
-            return upgrade_cover_letters(self.store, only_urls=url_set)
-
-        def done(n):
-            self.store.load()
-            self.refresh_queue_list()
-            target = focus or self.store.active_url or self.selected_url()
-            if target:
-                v = next((x for x in self.store.items if x.url == target), None)
-                if v and self._letter_ready(v):
-                    self._copy_letter_ui(v.cover_letter)
-                    self._push_detail(v.url)
-                    if beep_on_ready and sound_allowed(self.cfg):
-                        beep_double()
-                        self.append_log("Письмо готово → буфер (двойной писк)")
-            if self._selected_url:
-                self._push_detail(self._selected_url)
-            self.append_log(f"Письма обновлены: {n}")
-
-        self._run_bg(job, done, timeout_sec=600)
+            self.enqueue_letters(list(urls), front=bool(focus_url), beep_url=focus_url or "")
 
     def run_stats(self):
         if self._busy_stats:
@@ -846,10 +1025,12 @@ class MainWindow(QMainWindow):
         try:
             sync = apply_negotiations(self.store, neg)
             self.refresh_queue_list()
+            promo = int(sync.get("promoted") or 0)
+            extra = f", просмотренных → Applied: {promo}" if promo else ""
             self.append_log(
                 "Отклики HH → очередь: "
                 f"+{sync.get('added', 0)} обновлено {sync.get('updated', 0)} "
-                f"снято {sync.get('removed', 0)} (всего на HH: {sync.get('total', 0)})"
+                f"снято {sync.get('removed', 0)}{extra} (всего на HH: {sync.get('total', 0)})"
             )
         except Exception as e:
             self.append_log(f"Синхронизация откликов: {e}")
@@ -892,6 +1073,7 @@ class MainWindow(QMainWindow):
         self.cfg["hotkey"] = combo
         save_config(self.cfg)
         self.hotkeys.set_hotkey(combo)
+        self._install_win_hotkey()
         self.web.push("hotkey", {"label": hotkey_label(combo)})
         self.web.push("hotkey", {"status": f"Сохранено: {hotkey_label(combo)}"})
 
@@ -972,6 +1154,11 @@ class MainWindow(QMainWindow):
         self.quit_app()
 
     def quit_app(self):
+        try:
+            if self._win_hotkey is not None:
+                self._win_hotkey.stop()
+        except Exception:
+            pass
         try:
             self.hotkeys.stop()
         except Exception:

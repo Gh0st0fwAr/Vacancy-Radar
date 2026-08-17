@@ -63,9 +63,11 @@ DEFAULT_CONFIG = {
     "cover_letter_timeout_sec": 90,
     # Scoring: "hybrid" (rules prefilter → Cursor), "cursor" (SDK only), "rules" (local).
     # python_only=true принудительно rules + локальные письма (без Cursor SDK).
-    "scoring_mode": "hybrid",
+    "scoring_mode": "cursor",
     "python_only": False,
     "cursor_score_timeout_sec": 120,
+    "cursor_score_workers": 5,
+    "cursor_letter_workers": 5,
     # UI: 04 = hybrid default (see references/04_*.png)
     "ui_theme": "04",
     # Embedded WebEngine zoom (1.0 = CSS px as-is). Not a Chrome browser tab.

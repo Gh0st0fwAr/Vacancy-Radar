@@ -91,6 +91,7 @@ class TestOpenVacancyFast:
             score=80,
             cover_letter="letter body",
         )
+        no_key_cfg = {"cover_letter_via_cursor": True, "cursor_api_key": "", "python_only": False}
 
         with patch(
             "radar.search_hh.open_url_fast",
@@ -100,7 +101,8 @@ class TestOpenVacancyFast:
                 "radar.clipboard_util.set_clipboard",
                 side_effect=lambda text: order.append("clip") or True,
             ):
-                result = search_hh.open_vacancy_and_prepare(v)
+                with patch("radar.search_hh.load_config", return_value=no_key_cfg):
+                    result = search_hh.open_vacancy_and_prepare(v)
 
         assert result["ok"]
         assert result["clicked"] is False
@@ -119,6 +121,7 @@ class TestOpenVacancyFast:
             score=80,
             cover_letter="",
         )
+        no_key_cfg = {"cover_letter_via_cursor": True, "cursor_api_key": "", "python_only": False}
         with patch(
             "radar.search_hh.open_url_fast",
             side_effect=lambda *a, **k: order.append("open") or True,
@@ -127,7 +130,8 @@ class TestOpenVacancyFast:
                 "radar.clipboard_util.set_clipboard",
                 side_effect=lambda text: order.append("clip") or True,
             ):
-                result = search_hh.open_vacancy_and_prepare(v)
+                with patch("radar.search_hh.load_config", return_value=no_key_cfg):
+                    result = search_hh.open_vacancy_and_prepare(v)
         assert result["ok"]
         assert result.get("letter_pending") is True
         assert order == ["open"]

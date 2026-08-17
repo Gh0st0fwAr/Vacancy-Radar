@@ -1,94 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Tests for Cursor / rules scoring dispatcher."""
+"""Tests for Cursor SDK scoring (cursor-only, no hybrid/rules paths)."""
 from __future__ import annotations
 
 import json
 from unittest.mock import patch
 
-from radar.cursor_score import score_for_search, scoring_mode
+from radar.cursor_score import score_for_search
 
 
-class TestScoringMode:
-    def test_default_hybrid(self):
-        assert scoring_mode({"scoring_mode": "hybrid"}) == "hybrid"
-        assert scoring_mode({"scoring_mode": "cursor"}) == "cursor"
-        assert scoring_mode({"scoring_mode": "rules"}) == "rules"
-        assert scoring_mode({"scoring_mode": "weird"}) == "hybrid"
-
-    def test_python_only_forces_rules(self):
-        assert scoring_mode({"scoring_mode": "hybrid", "python_only": True}) == "rules"
-
-
-class TestHybridScoring:
-    def test_prefilter_skips_cursor(self):
+class TestCursorUnavailable:
+    def test_no_key_returns_unavailable(self):
         cfg = {
-            "scoring_mode": "hybrid",
             "score_threshold": 70,
-            "hybrid_rules_min": 60,
-            "salary_floor": 120000,
-            "cursor_api_key": "test-key",
-        }
-        with patch("radar.cursor_score._via_cursor") as cur:
-            sc, reasons, ok, meta = score_for_search(
-                title="Java backend onsite only",
-                snippet="Java Spring office Moscow no remote",
-                schedule="office",
-                cfg=cfg,
-            )
-        cur.assert_not_called()
-        assert meta["source"] == "hybrid_prefilter"
-
-    def test_hybrid_cursor_fallback_to_rules(self):
-        cfg = {
-            "scoring_mode": "hybrid",
-            "score_threshold": 70,
-            "hybrid_rules_min": 60,
-            "salary_floor": 120000,
-            "cursor_api_key": "test-key",
-        }
-        with patch("radar.cursor_score._api_key", return_value="test-key"):
-            with patch("radar.cursor_score.BRIDGE") as br:
-                br.exists.return_value = True
-                with patch("radar.cursor_score._via_cursor", return_value=None):
-                    sc, reasons, ok, meta = score_for_search(
-                        title="Vue 3 TypeScript remote Middle",
-                        snippet="Vue3 TypeScript remote Middle Pinia",
-                        schedule="remote",
-                        cfg=cfg,
-                    )
-        assert meta["source"] == "hybrid_rules_fallback"
-        assert ok is True
-        assert sc >= 70
-
-
-class TestScoreForSearchRules:
-    def test_rules_mode_uses_local_scorer(self):
-        cfg = {
-            "scoring_mode": "rules",
-            "score_threshold": 65,
-            "salary_floor": 120000,
-            "cursor_api_key": "",
-        }
-        sc, reasons, ok, meta = score_for_search(
-            title="Vue 3 TypeScript remote Middle",
-            snippet="Vue3 TypeScript remote Middle Pinia",
-            salary_text="",
-            schedule="remote",
-            company="TestCo",
-            cfg=cfg,
-        )
-        assert meta["source"] == "rules"
-        assert ok is True
-        assert sc >= 65
-        assert any("Vue" in r or "remote" in r for r in reasons)
-
-
-class TestScoreForSearchCursorNoRulesFallback:
-    def test_cursor_mode_without_key_does_not_use_rules(self):
-        cfg = {
-            "scoring_mode": "cursor",
-            "score_threshold": 65,
-            "salary_floor": 120000,
             "cursor_api_key": "",
         }
         sc, reasons, ok, meta = score_for_search(
@@ -105,7 +28,6 @@ class TestScoreForSearchCursorNoRulesFallback:
 
 class TestCursorBridgeParse:
     def test_extract_json_shape_documented(self):
-        # Mirror bridge contract used by Node script
         sample = {"score": 78, "accept": True, "reasons": ["Vue 3", "remote"]}
         raw = json.dumps(sample)
         parsed = json.loads(raw)
@@ -116,9 +38,7 @@ class TestCursorBridgeParse:
 class TestCursorViaMock:
     def test_cursor_path_when_bridge_returns_ok(self):
         cfg = {
-            "scoring_mode": "cursor",
             "score_threshold": 65,
-            "salary_floor": 120000,
             "cursor_api_key": "test-key",
             "cursor_model": "composer-2.5",
             "cursor_score_timeout_sec": 30,
@@ -147,3 +67,49 @@ class TestCursorViaMock:
         assert meta["source"] == "cursor"
         assert meta["usage"]["totalTokens"] == 1080
         assert "Vue 3 fit" in reasons
+
+    def test_cursor_below_threshold_not_accepted(self):
+        cfg = {
+            "score_threshold": 70,
+            "cursor_api_key": "test-key",
+            "cursor_model": "composer-2.5",
+            "cursor_score_timeout_sec": 30,
+        }
+        fake = {
+            "ok": True,
+            "score": 45,
+            "accept": False,
+            "reasons": ["some match"],
+            "elapsed_ms": 500,
+        }
+        with patch("radar.cursor_score._api_key", return_value="test-key"):
+            with patch("radar.cursor_score.BRIDGE") as br:
+                br.exists.return_value = True
+                with patch("radar.cursor_score._via_cursor", return_value=fake):
+                    sc, reasons, ok, meta = score_for_search(
+                        title="Java backend",
+                        snippet="Java Spring",
+                        cfg=cfg,
+                    )
+        assert sc == 45
+        assert ok is False
+        assert meta["source"] == "cursor"
+
+    def test_cursor_bridge_failure_returns_zero(self):
+        cfg = {
+            "score_threshold": 70,
+            "cursor_api_key": "test-key",
+            "cursor_score_timeout_sec": 30,
+        }
+        with patch("radar.cursor_score._api_key", return_value="test-key"):
+            with patch("radar.cursor_score.BRIDGE") as br:
+                br.exists.return_value = True
+                with patch("radar.cursor_score._via_cursor", return_value=None):
+                    sc, reasons, ok, meta = score_for_search(
+                        title="Vue 3",
+                        snippet="Vue3 TS",
+                        cfg=cfg,
+                    )
+        assert sc == 0
+        assert ok is False
+        assert meta["source"] == "cursor_failed"

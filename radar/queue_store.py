@@ -203,10 +203,11 @@ class QueueStore:
         self.save()
         return True
 
+    _STATUS_RANK = {"new": 0, "visited": 1, "skipped": 2, "applied": 3}
+
     def mark(self, url: str, status: str) -> None:
         nid = norm_url(url)
         if status == "banned":
-            # Удалить из очереди навсегда; seen не даст вернуться из поиска.
             self.items = [v for v in self.items if norm_url(v.url) != nid]
             if nid:
                 self.seen.add(nid)
@@ -214,8 +215,12 @@ class QueueStore:
                 self.active_url = ""
             self.save()
             return
+        new_rank = self._STATUS_RANK.get(status, 0)
         for v in self.items:
             if norm_url(v.url) == nid:
+                old_rank = self._STATUS_RANK.get(v.status, 0)
+                if new_rank < old_rank:
+                    return
                 v.status = status
                 break
         self.save()

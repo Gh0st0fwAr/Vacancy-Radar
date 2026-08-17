@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import threading
 import time
 from typing import Callable, Dict, List, Optional
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -13,8 +14,7 @@ from .chrome_lock import chrome_exclusive
 from .cover_letter import make_cover_letter
 from .queue_store import QueueStore, Vacancy, norm_url
 from .refusal import text_looks_like_refusal
-from .cursor_score import score_for_search
-from .scorer import score_vacancy as score_vacancy_rules
+from .cursor_score import score_many_parallel
 from .config import EXCLUDE_FILE, ROUNDS_GLOB, load_config, load_json
 from .metrics_log import append_event
 
@@ -145,23 +145,6 @@ def _serp_page_url(base: str, page: int) -> str:
     return urlunparse(parsed._replace(query=urlencode(q)))
 
 
-def _rules_snippet_pass(c: dict, cfg: dict) -> bool:
-    hybrid_min = int(cfg.get("hybrid_rules_min") or 60)
-    title = (c.get("title") or "").strip()
-    snippet = c.get("snippet") or ""
-    salary = (c.get("salary") or "").strip()
-    sc, _, ok = score_vacancy_rules(
-        title,
-        snippet,
-        salary_text=salary,
-        schedule="удалённо",
-        salary_floor=int(cfg.get("salary_floor") or 120000),
-        salary_good=int(cfg.get("salary_good") or 140000),
-        gate_threshold=hybrid_min,
-    )
-    return bool(ok or sc >= hybrid_min)
-
-
 def _collect_serp_cards(
     session: CdpSession,
     base_url: str,
@@ -232,7 +215,7 @@ def search_once(
     t0 = time.time()
 
     per_vac = 18.0 if deep else 4.0
-    lock_timeout = float(cfg.get("clear_check_timeout_sec") or 900) if clear_check else max(
+    fetch_timeout = float(cfg.get("clear_check_timeout_sec") or 900) if clear_check else max(
         360.0, 80.0 + max_deep * per_vac
     )
 
@@ -240,8 +223,10 @@ def search_once(
         if on_progress:
             on_progress(msg)
 
+    prepared: List[dict] = []
+
     try:
-        with chrome_exclusive(timeout=lock_timeout):
+        with chrome_exclusive(timeout=fetch_timeout):
             session = open_session(url)
             try:
                 cards, serp_meta = _collect_serp_cards(session, url or "", max_pages, on_progress=prog)
@@ -269,18 +254,19 @@ def search_once(
                     if store.in_queue(link):
                         skipped += 1
                         continue
-                    if c.get("visited") and not clear_check:
-                        if not _rules_snippet_pass(c, cfg):
+                    if not clear_check:
+                        if c.get("visited"):
                             skipped += 1
                             continue
-                    elif link in store.seen and not clear_check:
-                        store.seen.discard(link)
+                        if link in store.seen:
+                            skipped += 1
+                            continue
                     candidates.append(c)
 
                 if max_deep > 0:
                     candidates = candidates[: max(0, max_deep)]
 
-                prog(f"К deep-score: {len(candidates)} карточек (пропущено {skipped})")
+                prog(f"К загрузке текста: {len(candidates)} карточек (пропущено {skipped})")
 
                 for idx, c in enumerate(candidates, start=1):
                     link = norm_url(c.get("url") or "")
@@ -295,7 +281,8 @@ def search_once(
                     snippet = c.get("snippet") or ""
 
                     if deep:
-                        prog(f"[{idx}/{len(candidates)}] {title[:60]}…")
+                        if idx == 1 or idx == len(candidates) or idx % 5 == 0:
+                            prog(f"[fetch {idx}/{len(candidates)}] {title[:60]}…")
                         details = _fetch_vacancy_details(session, link, settle=settle)
                         deep_opened += 1
                         if details and details.get("needLogin"):
@@ -319,67 +306,95 @@ def search_once(
                             if details.get("experience"):
                                 experience = str(details["experience"]).strip()
 
-                    sc, reasons, ok, score_meta = score_for_search(
-                        title=title,
-                        snippet=snippet,
-                        salary_text=salary,
-                        schedule=schedule,
-                        experience=experience,
-                        company=company,
-                        cfg=cfg,
+                    prepared.append(
+                        {
+                            "link": link,
+                            "title": title,
+                            "company": company,
+                            "salary": salary,
+                            "schedule": schedule,
+                            "experience": experience,
+                            "snippet": (snippet or "")[:8000],
+                        }
                     )
-                    src = str((score_meta or {}).get("source") or "rules")
-                    reasons = list(reasons) + [f"score:{src}"]
-                    if text_looks_like_refusal(snippet, title) or (
-                        reasons and any("refusal" in r.lower() or "Отказ" in r for r in reasons)
-                    ):
-                        store.mark(link, "banned")
-                        skipped += 1
-                        continue
-                    if not ok or sc < threshold:
-                        store.remember(link)
-                        skipped += 1
-                        prog(f"  {sc}% — ниже порога {threshold}")
-                        continue
-
-                    want_cursor_letter = bool(cfg.get("cover_letter_via_cursor", True)) and not bool(
-                        cfg.get("python_only", False)
-                    )
-                    from .cover_letter import _api_key as _letter_key
-
-                    has_letter_key = bool(_letter_key(cfg))
-                    full_text = (snippet or "")[:12000]
-                    if want_cursor_letter and has_letter_key:
-                        letter, letter_src = "", "pending"
-                    else:
-                        letter, letter_src = make_cover_letter(
-                            title,
-                            company=company,
-                            description=full_text,
-                            salary=salary,
-                            reasons=reasons,
-                            force_local=True,
-                        )
-                    v = Vacancy(
-                        id=link,
-                        title=title,
-                        company=company,
-                        url=link,
-                        score=sc,
-                        reasons=reasons + (["deep:full-text"] if deep else ["serp-snippet"]),
-                        salary=salary,
-                        cover_letter=letter,
-                        letter_source=letter_src,
-                        description=full_text,
-                        status="new",
-                    )
-                    if store.add(v):
-                        added.append(v)
-                        prog(f"  +{sc}% → очередь: {title[:50]}")
-                    else:
-                        skipped += 1
             finally:
                 session.close()
+
+        if prepared:
+            workers = max(1, min(int(cfg.get("cursor_score_workers") or 5), 6))
+            prog(f"Cursor score: {len(prepared)} вакансий, workers={workers}…")
+            scored = score_many_parallel(prepared, cfg=cfg, workers=workers, on_progress=prog)
+        else:
+            scored = []
+
+        want_cursor_letter = bool(cfg.get("cover_letter_via_cursor", True)) and not bool(
+            cfg.get("python_only", False)
+        )
+        from .cover_letter import _api_key as _letter_key
+
+        has_letter_key = bool(_letter_key(cfg))
+
+        for item in scored:
+            link = item["link"]
+            title = item["title"]
+            company = item.get("company") or ""
+            salary = item.get("salary") or ""
+            schedule = item.get("schedule") or ""
+            experience = item.get("experience") or ""
+            snippet = item.get("snippet") or ""
+            sc = int(item.get("score") or 0)
+            ok = bool(item.get("accept_ok"))
+            reasons = list(item.get("reasons") or [])
+            score_meta = item.get("score_meta") or {}
+            src = str(score_meta.get("source") or "rules")
+            reasons = reasons + [f"score:{src}"]
+
+            if text_looks_like_refusal(snippet, title) or (
+                reasons and any("refusal" in r.lower() or "Отказ" in r for r in reasons)
+            ):
+                store.mark(link, "banned")
+                skipped += 1
+                continue
+            if not ok or sc < threshold:
+                store.remember(link)
+                skipped += 1
+                prog(f"  {sc}% — ниже порога {threshold}")
+                continue
+
+            full_text = (snippet or "")[:12000]
+            if want_cursor_letter and has_letter_key:
+                letter, letter_src = "", "pending"
+            else:
+                letter, letter_src = make_cover_letter(
+                    title,
+                    company=company,
+                    description=full_text,
+                    salary=salary,
+                    reasons=reasons,
+                    force_local=True,
+                )
+            v = Vacancy(
+                id=link,
+                title=title,
+                company=company,
+                url=link,
+                score=sc,
+                reasons=reasons + (["deep:full-text"] if deep else ["serp-snippet"]),
+                salary=salary,
+                cover_letter=letter,
+                letter_source=letter_src,
+                description=full_text,
+                status="new",
+            )
+            if store.add(v):
+                added.append(v)
+                prog(f"  +{sc}% → очередь: {title[:50]}")
+            else:
+                skipped += 1
+
+        if added and want_cursor_letter and has_letter_key:
+            # Письма пишет UI (параллельная очередь), здесь только помечаем pending.
+            pass
     except TimeoutError as e:
         return {"ok": False, "error": str(e), "added": [], "checked": 0, "clear_check": clear_check}
     except CdpError as e:
@@ -420,8 +435,15 @@ def search_once(
     return result
 
 
-def upgrade_cover_letters(store: QueueStore, only_urls: Optional[set] = None) -> int:
-    """Generate unique Cursor cover letters from full vacancy description."""
+def upgrade_cover_letters(
+    store: QueueStore,
+    only_urls: Optional[set] = None,
+    *,
+    on_progress: Optional[Callable[[str], None]] = None,
+) -> int:
+    """Generate unique Cursor cover letters (parallel node workers)."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     from .cover_letter import _api_key, is_stale_template
 
     cfg = load_config()
@@ -429,7 +451,10 @@ def upgrade_cover_letters(store: QueueStore, only_urls: Optional[set] = None) ->
         cfg.get("python_only", False)
     )
     has_key = bool(_api_key(cfg))
-    upgraded = 0
+    workers = max(1, min(int(cfg.get("cursor_letter_workers") or 5), 6))
+    lock = threading.Lock()
+    todo: List[Vacancy] = []
+
     for v in list(store.items):
         if only_urls is not None and v.url not in only_urls:
             continue
@@ -440,7 +465,12 @@ def upgrade_cover_letters(store: QueueStore, only_urls: Optional[set] = None) ->
         need_cursor = want_cursor and has_key and src != "cursor"
         if not (empty or stale or pending or need_cursor):
             continue
-        # Always prefer Cursor when enabled+keyed; never keep universal local as final.
+        todo.append(v)
+
+    if not todo:
+        return 0
+
+    def _one(v: Vacancy) -> tuple[str, Optional[str], Optional[str]]:
         letter, new_src = make_cover_letter(
             v.title,
             company=v.company,
@@ -449,18 +479,87 @@ def upgrade_cover_letters(store: QueueStore, only_urls: Optional[set] = None) ->
             reasons=v.reasons,
             force_local=not (want_cursor and has_key),
         )
-        if want_cursor and has_key and new_src != "cursor":
-            # Failed Cursor — keep pending, do not stamp local universal as done.
-            if empty or src == "pending":
-                v.letter_source = "pending"
-                store.save()
-            continue
-        if letter and (letter != v.cover_letter or new_src != v.letter_source):
-            v.cover_letter = letter
-            v.letter_source = new_src
-            upgraded += 1
-            store.save()
+        return v.url, letter, new_src
+
+    upgraded = 0
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futs = [pool.submit(_one, v) for v in todo]
+        done_n = 0
+        for fut in as_completed(futs):
+            url, letter, new_src = fut.result()
+            done_n += 1
+            with lock:
+                target = next((x for x in store.items if x.url == url), None)
+                if not target:
+                    continue
+                if want_cursor and has_key and new_src != "cursor":
+                    if not (target.cover_letter or "").strip() or (
+                        target.letter_source or ""
+                    ) == "pending":
+                        target.letter_source = "pending"
+                        store.save()
+                    if on_progress:
+                        on_progress(f"  письмо [{done_n}/{len(todo)}] pending: {target.title[:40]}")
+                    continue
+                if letter and (
+                    letter != target.cover_letter or new_src != target.letter_source
+                ):
+                    target.cover_letter = letter
+                    target.letter_source = new_src or "cursor"
+                    upgraded += 1
+                    store.save()
+                    if on_progress:
+                        on_progress(
+                            f"  письмо [{done_n}/{len(todo)}] OK: {target.title[:40]}"
+                        )
     return upgraded
+
+
+def generate_one_letter(store: QueueStore, url: str) -> dict:
+    """One Cursor cover letter. Used by the UI letter pump (parallel, incremental)."""
+    from .cover_letter import _api_key, _via_cursor, make_cover_letter
+    from .queue_store import norm_url as _nu
+
+    cfg = load_config()
+    nid = _nu(url)
+    v = next((x for x in store.items if _nu(x.url) == nid), None)
+    if not v:
+        return {"ok": False, "url": url, "error": "нет в очереди"}
+    want = bool(cfg.get("cover_letter_via_cursor", True)) and not bool(cfg.get("python_only", False))
+    if want and _api_key(cfg):
+        letter, meta = _via_cursor(
+            title=v.title,
+            company=v.company or "",
+            description=v.description or "",
+            salary=v.salary or "",
+            reasons=list(v.reasons or []),
+            cfg=cfg,
+        )
+        if letter:
+            v.cover_letter = letter
+            v.letter_source = "cursor"
+            store.save()
+            return {"ok": True, "url": v.url, "title": v.title}
+        return {
+            "ok": False,
+            "url": v.url,
+            "title": v.title,
+            "error": str((meta or {}).get("error") or "Cursor не вернул письмо"),
+        }
+    letter, src = make_cover_letter(
+        v.title,
+        company=v.company,
+        description=v.description or "",
+        salary=v.salary,
+        reasons=v.reasons,
+        force_local=True,
+    )
+    if letter:
+        v.cover_letter = letter
+        v.letter_source = src or "local"
+        store.save()
+        return {"ok": True, "url": v.url, "title": v.title, "source": src}
+    return {"ok": False, "url": v.url, "title": v.title, "error": "пустое письмо"}
 
 
 def open_vacancy_and_prepare(v: Vacancy) -> Dict:
@@ -518,10 +617,11 @@ def open_vacancy_and_prepare(v: Vacancy) -> Dict:
             v.letter_source = "cursor"
 
     clip_ok = False
-    if (v.cover_letter or "").strip() and (v.letter_source or "") == "cursor":
-        clip_ok = set_clipboard(v.cover_letter or "")
-    elif (v.cover_letter or "").strip() and not want_cursor:
-        clip_ok = set_clipboard(v.cover_letter or "")
+    if (v.cover_letter or "").strip():
+        if (v.letter_source or "") == "cursor":
+            clip_ok = set_clipboard(v.cover_letter or "")
+        elif not want_cursor or not _api_key(cfg):
+            clip_ok = set_clipboard(v.cover_letter or "")
 
     who = f"«{v.title}» — " if v.title else ""
     pending = want_cursor and (v.letter_source or "") != "cursor"
