@@ -206,12 +206,11 @@ def _via_local(
     reasons: Sequence[str],
     cfg: dict,
 ) -> str:
-    role = (cfg.get("candidate_role") or "\u0421\u043f\u0435\u0446\u0438\u0430\u043b\u0438\u0441\u0442").strip()
-    years = str(cfg.get("experience_years_label") or "1").strip()
+    years = str(cfg.get("experience_years_label") or "").strip()
     pitch = (cfg.get("candidate_pitch") or "").strip()
-    fmt = (cfg.get("work_format_phrase") or "\u0418\u0449\u0443 \u0443\u0434\u0430\u043b\u0451\u043d\u043d\u0443\u044e \u0440\u0430\u0431\u043e\u0442\u0443").strip()
+    fmt = (cfg.get("work_format_phrase") or "Ищу удалённую работу").strip()
     target = int(cfg.get("salary_target") or 100000)
-    company_bit = (" \u0432 " + company) if company else ""
+    closing = (cfg.get("cover_letter_closing") or "").strip()
     header = _header(cfg)
 
     parts = []
@@ -219,30 +218,35 @@ def _via_local(
         parts.extend([header, ""])
     parts.extend(
         [
-            "\u0417\u0434\u0440\u0430\u0432\u0441\u0442\u0432\u0443\u0439\u0442\u0435!",
-            "\u0417\u0430\u0438\u043d\u0442\u0435\u0440\u0435\u0441\u043e\u0432\u0430\u043b\u0430 \u0432\u0430\u0448\u0430 \u0432\u0430\u043a\u0430\u043d\u0441\u0438\u044f " + title + ".",
+            "Здравствуйте!",
             "",
-            "\u042f \u2014 " + role + ", \u043e\u043f\u044b\u0442 ~" + years + " \u0433. "
-            "\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u044f \u00ab" + title + "\u00bb" + company_bit + " "
-            "\u043f\u043e \u043f\u0440\u043e\u0444\u0438\u043b\u044e \u0431\u043b\u0438\u0437\u043a\u0430 \u043a \u043c\u043e\u0435\u043c\u0443 \u043e\u043f\u044b\u0442\u0443.",
+            "Заинтересовала ваша вакансия " + title + ".",
             "",
         ]
     )
+    if fmt:
+        parts.append(fmt)
     if pitch:
-        parts.extend([pitch, ""])
-    salary_note = ""
+        parts.extend(["", pitch, ""])
+    elif years:
+        role = (cfg.get("candidate_role") or "Специалист").strip()
+        parts.extend(
+            [
+                "",
+                "Я — " + role + ", опыт " + years + ".",
+                "",
+            ]
+        )
+    salary_line = (
+        "Ориентир по компенсации — около "
+        + f"{target:,}".replace(",", " ")
+        + " ₽ на руки."
+    )
     if salary:
-        salary_note = " \u0412 \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u043e: " + salary + "."
-    parts.append(
-        fmt + ". \u041e\u0440\u0438\u0435\u043d\u0442\u0438\u0440 \u043f\u043e \u043a\u043e\u043c\u043f\u0435\u043d\u0441\u0430\u0446\u0438\u0438 ~"
-        + str(target // 1000)
-        + "k \u043d\u0430 \u0440\u0443\u043a\u0438."
-        + salary_note
-    )
-    parts.extend(
-        [
-            "",
-            "\u0413\u043e\u0442\u043e\u0432 \u043e\u0442\u0432\u0435\u0442\u0438\u0442\u044c \u043d\u0430 \u0432\u043e\u043f\u0440\u043e\u0441\u044b \u043f\u043e \u043e\u043f\u044b\u0442\u0443 \u0438 \u0441\u043e\u0437\u0432\u043e\u043d\u0438\u0442\u044c\u0441\u044f.",
-        ]
-    )
+        salary_line += " В карточке указано: " + salary + "."
+    parts.append(salary_line)
+    if closing:
+        parts.extend(["", closing])
+    else:
+        parts.extend(["", "Готов ответить на вопросы по опыту и созвониться."])
     return _sanitize("\n".join(parts))

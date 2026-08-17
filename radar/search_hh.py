@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+from pathlib import Path
 from typing import Callable, Dict, List, Optional
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -121,7 +122,9 @@ JS_VACANCY_FULL = r"""
 def load_excludes(cfg: Optional[dict] = None) -> set:
     cfg = cfg or load_config()
     out = set()
-    data = load_json(EXCLUDE_FILE, {})
+    raw_path = (cfg.get("exclude_file") or "").strip()
+    path = Path(raw_path) if raw_path else EXCLUDE_FILE
+    data = load_json(path, {})
     for u in data.get("exclude_links") or []:
         out.add(norm_url(u))
     if bool(cfg.get("exclude_manual_rounds", False)):
@@ -276,7 +279,7 @@ def search_once(
                     title = (c.get("title") or "").strip() or "Без названия"
                     company = (c.get("company") or "").strip()
                     salary = (c.get("salary") or "").strip()
-                    schedule = "удалённо"
+                    schedule = ""
                     experience = ""
                     snippet = c.get("snippet") or ""
 

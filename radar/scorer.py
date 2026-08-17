@@ -32,6 +32,55 @@ def _as_list(val: Any) -> List[str]:
 
 
 _ALIASES: Dict[str, List[str]] = {
+    "карточки маркетплейсов": [
+        "карточки маркетплейс",
+        "карточек на маркетплейс",
+        "карточек товар",
+        "карточка товар",
+        "дизайнер карточек",
+        "инфографик",
+        "маркетплейс",
+        "wildberries",
+        "вайлдберриз",
+        "ozon",
+        "озон",
+        "графический дизайнер",
+        "графического дизайнер",
+        "предпечат",
+        "логотип",
+        "фирменный стиль",
+    ],
+    "графический дизайнер": [
+        "графический дизайнер",
+        "графического дизайнер",
+        "графический дизайн",
+    ],
+    "дизайнер инфографики": [
+        "дизайнер инфографики",
+        "инфографики для маркетплейс",
+        "инфографика для маркетплейс",
+        "инфографик",
+    ],
+    "photoshop": ["photoshop", "фотошоп"],
+    "illustrator": ["illustrator"],
+    "coreldraw": ["coreldraw", "corel draw", "corel"],
+    "figma": ["figma"],
+    "chatgpt": ["chatgpt", "chat gpt"],
+    "нейронные сети": ["нейронн", "нейросет"],
+    "rich-контент": ["rich-контент", "rich контент", "rich content"],
+    "a/b тесты карточки": ["a/b", "а/в", "ab-тест", "аб-тест", "a/b тест"],
+    "баннеры": ["баннер"],
+    "веб-дизайнер": [
+        "веб-дизайнер",
+        "веб дизайнер",
+        "web-дизайнер",
+        "web дизайнер",
+        "web designer",
+        "ui/ux",
+        "ux/ui",
+        "ux-дизайнер",
+        "ui-дизайнер",
+    ],
     "support": [
         "support",
         "\u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a",
@@ -148,6 +197,70 @@ def parse_salary_max(text: str) -> int | None:
     return max(nums)
 
 
+def _as_bool(val: Any, default: bool = False) -> bool:
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    return str(val).strip().lower() not in ("0", "false", "no", "off", "")
+
+
+def _as_score_map(val: Any) -> Dict[str, int]:
+    if not val:
+        return {}
+    if isinstance(val, dict):
+        out: Dict[str, int] = {}
+        for k, v in val.items():
+            key = str(k).strip()
+            if not key:
+                continue
+            try:
+                out[key] = int(v)
+            except (TypeError, ValueError):
+                continue
+        return out
+    return {}
+
+
+def _layer_score(text: str, mapping: Dict[str, int], cap: int, prefix: str) -> Tuple[int, List[str]]:
+    if not mapping:
+        return 0, []
+    blob = _text(text)
+    pos = 0
+    neg = 0
+    reasons: List[str] = []
+    for kw, w in mapping.items():
+        if not _kw_hit(blob, kw):
+            continue
+        if w >= 0:
+            pos += w
+            reasons.append(f"+{w} {prefix}:{kw}")
+        else:
+            neg += w
+            reasons.append(f"{w} {prefix}:{kw}")
+    if cap > 0 and pos > cap:
+        reasons.append(f"cap {prefix} {pos}->{cap}")
+        pos = cap
+    return pos + neg, reasons
+
+
+def _spb_office_only(blob: str, remote_ok: bool) -> bool:
+    if remote_ok:
+        return False
+    moscow = any(x in blob for x in ("москв", "мск"))
+    spb = any(
+        x in blob
+        for x in (
+            "санкт-петербург",
+            "санкт петербург",
+            "г. спб",
+            "спб,",
+            "петербург",
+        )
+    )
+    return spb and not moscow
+
+
 def profile_from_config(cfg: Optional[dict] = None) -> Dict[str, Any]:
     cfg = cfg or {}
     return {
@@ -156,6 +269,17 @@ def profile_from_config(cfg: Optional[dict] = None) -> Dict[str, Any]:
         "nice_to_have_keywords": _as_list(cfg.get("nice_to_have_keywords")),
         "hard_reject_keywords": _as_list(cfg.get("hard_reject_keywords")),
         "exclude_keywords": _as_list(cfg.get("exclude_keywords")),
+        "require_remote": cfg.get("require_remote", True),
+        "skip_level_heuristic": _as_bool(cfg.get("skip_level_heuristic"), False),
+        "score_title": _as_score_map(cfg.get("score_title")),
+        "score_body": _as_score_map(cfg.get("score_body")),
+        "score_skills": _as_score_map(cfg.get("score_skills")),
+        "title_score_cap": int(cfg.get("title_score_cap") or 22),
+        "body_score_cap": int(cfg.get("body_score_cap") or 18),
+        "skill_score_cap": int(cfg.get("skill_score_cap") or 16),
+        "format_base": int(cfg.get("format_base") or 20),
+        "format_remote_bonus": int(cfg.get("format_remote_bonus") or 0),
+        "must_have_pts": int(cfg.get("must_have_pts") or 25),
     }
 
 
@@ -178,18 +302,44 @@ def score_vacancy(
     if text_looks_like_refusal(title, snippet):
         return 0, ["HH employer refusal"], False
 
-    early = _remote_early(blob, schedule)
-    if early is not None:
-        return early
-    score += 20
-    reasons.append("+20 remote")
-
     prof = profile_from_config(profile or {})
     must = prof["must_have_keywords"]
     search_kw = prof["search_keywords"]
     nice = prof["nice_to_have_keywords"]
     hard = prof["hard_reject_keywords"]
     excl = prof["exclude_keywords"]
+    layered = bool(prof["score_title"] or prof["score_body"] or prof["score_skills"])
+    require_remote = _as_bool(prof.get("require_remote"), True)
+
+    remote_ok = any(
+        x in blob
+        for x in (
+            "удал",
+            "remote",
+            "дистанц",
+            "можно удаленно",
+            "формат работы: удален",
+        )
+    )
+    if "удал" in (schedule or "").lower() or "remote" in (schedule or "").lower():
+        remote_ok = True
+
+    if require_remote:
+        early = _remote_early(blob, schedule)
+        if early is not None:
+            return early
+        score += 20
+        reasons.append("+20 remote")
+    else:
+        if _spb_office_only(blob, remote_ok):
+            return 0, ["Офис не Москва"], False
+        fmt = int(prof["format_base"] or 12)
+        score += fmt
+        reasons.append(f"+{fmt} format ok")
+        extra = int(prof["format_remote_bonus"] or 0)
+        if extra and remote_ok:
+            score += extra
+            reasons.append(f"+{extra} remote")
 
     for kw in hard:
         if _kw_hit(blob, kw):
@@ -206,66 +356,93 @@ def score_vacancy(
 
     must_hits = [kw for kw in must if _kw_hit(blob, kw)]
     if must and not must_hits:
-        return 10, ["\u041d\u0435\u0442 \u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0445 \u043c\u0430\u0440\u043a\u0435\u0440\u043e\u0432 (must_have)"], False
+        return 10, ["Нет обязательных маркеров (must_have)"], False
+    must_pts = int(prof["must_have_pts"] or 25)
     for kw in must_hits:
-        score += 25
-        reasons.append("+25 must:" + kw)
+        score += must_pts
+        reasons.append(f"+{must_pts} must:{kw}")
 
-    must_norm = {_norm_kw(k) for k in must_hits}
-    for kw in search_kw:
-        if _norm_kw(kw) in must_norm:
-            continue
-        if _kw_hit(blob, kw):
-            score += 10
-            reasons.append("+10 search:" + kw)
+    if layered:
+        t_pts, t_rs = _layer_score(title, prof["score_title"], int(prof["title_score_cap"] or 22), "title")
+        b_pts, b_rs = _layer_score(snippet, prof["score_body"], int(prof["body_score_cap"] or 18), "body")
+        s_pts, s_rs = _layer_score(blob, prof["score_skills"], int(prof["skill_score_cap"] or 16), "skill")
+        score += t_pts + b_pts + s_pts
+        reasons.extend(t_rs + b_rs + s_rs)
+    else:
+        must_norm = {_norm_kw(k) for k in must_hits}
+        for kw in search_kw:
+            if _norm_kw(kw) in must_norm:
+                continue
+            if _kw_hit(blob, kw):
+                score += 10
+                reasons.append("+10 search:" + kw)
 
-    for kw in nice:
-        if _kw_hit(blob, kw):
-            score += 8
-            reasons.append("+8 nice:" + kw)
+        for kw in nice:
+            if _kw_hit(blob, kw):
+                score += 8
+                reasons.append("+8 nice:" + kw)
 
-    if any(
-        x in blob
-        for x in (
-            "junior",
-            "\u0434\u0436\u0443\u043d",
-            "\u0441\u0442\u0430\u0436\u0435\u0440",
-            "l1",
-            "\u043f\u0435\u0440\u0432\u0430\u044f \u043b\u0438\u043d\u0438\u044f",
-        )
-    ):
-        score += 12
-        reasons.append("+12 Junior/L1 fit")
-    elif any(
-        x in blob
-        for x in (
-            "senior",
-            "\u0441\u0435\u043d\u044c\u043e\u0440",
-            "\u0432\u0435\u0434\u0443\u0449\u0438\u0439",
-            "lead",
-        )
-    ):
-        score -= 20
-        reasons.append("-20 Senior/Lead (~1y)")
-    elif any(
-        x in blob
-        for x in (
-            "middle",
-            "\u043c\u0438\u0434\u043b",
-            "l2",
-            "\u0432\u0442\u043e\u0440\u0430\u044f \u043b\u0438\u043d\u0438\u044f",
-        )
-    ):
-        score += 4
-        reasons.append("+4 Middle/L2")
+    if not prof["skip_level_heuristic"]:
+        if any(
+            x in blob
+            for x in (
+                "junior",
+                "\u0434\u0436\u0443\u043d",
+                "\u0441\u0442\u0430\u0436\u0435\u0440",
+                "l1",
+                "\u043f\u0435\u0440\u0432\u0430\u044f \u043b\u0438\u043d\u0438\u044f",
+            )
+        ):
+            score += 12
+            reasons.append("+12 Junior/L1 fit")
+        elif any(
+            x in blob
+            for x in (
+                "senior",
+                "\u0441\u0435\u043d\u044c\u043e\u0440",
+                "\u0432\u0435\u0434\u0443\u0449\u0438\u0439",
+                "lead",
+            )
+        ):
+            score -= 20
+            reasons.append("-20 Senior/Lead (~1y)")
+        elif any(
+            x in blob
+            for x in (
+                "middle",
+                "\u043c\u0438\u0434\u043b",
+                "l2",
+                "\u0432\u0442\u043e\u0440\u0430\u044f \u043b\u0438\u043d\u0438\u044f",
+            )
+        ):
+            score += 4
+            reasons.append("+4 Middle/L2")
 
     sal = parse_salary_max(salary_text)
     negotiable = sal is None or is_salary_negotiable(salary_text)
     salary_missing = bool(negotiable and sal is None)
     if sal is not None:
-        if sal >= salary_floor:
+        good = 0
+        mid = 0
+        if isinstance(profile, dict):
+            try:
+                good = int(profile.get("salary_good") or 0)
+            except (TypeError, ValueError):
+                good = 0
+            try:
+                mid = int(profile.get("salary_mid") or 0)
+            except (TypeError, ValueError):
+                mid = 0
+        if layered and good and sal >= good:
             score += 8
-            reasons.append("+8 ZP>=" + str(salary_floor))
+            reasons.append("+8 ZP>=" + str(good))
+        elif layered and mid and sal >= mid:
+            score += 6
+            reasons.append("+6 ZP>=" + str(mid))
+        elif sal >= salary_floor:
+            pts = 2 if layered else 8
+            score += pts
+            reasons.append(f"+{pts} ZP>=" + str(salary_floor))
         else:
             score -= 12
             reasons.append("-12 ZP low (~" + str(sal) + ")")

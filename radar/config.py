@@ -83,6 +83,13 @@ DEFAULT_CONFIG = {
     "nice_to_have_keywords": [],
     "hard_reject_keywords": [],
     "work_format_phrase": "Ищу удалённую работу",
+    "cover_letter_closing": "",
+    "require_remote": True,
+    "skip_level_heuristic": False,
+    "exclude_file": "",
+    "score_title": {},
+    "score_body": {},
+    "score_skills": {},
 }
 
 
