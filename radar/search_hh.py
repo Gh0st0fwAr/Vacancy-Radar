@@ -214,9 +214,16 @@ def search_once(
     serp_pages = 0
     t0 = time.time()
 
+    from .preferences import hard_reject, search_seed_urls
+
+    seed_urls = search_seed_urls(url or "")
+    if not seed_urls and url:
+        seed_urls = [str(url)]
+
     per_vac = 18.0 if deep else 4.0
+    # Extra SERP seeds (Desirable OR-query) need more chrome time
     fetch_timeout = float(cfg.get("clear_check_timeout_sec") or 900) if clear_check else max(
-        360.0, 80.0 + max_deep * per_vac
+        360.0, 80.0 + max_deep * per_vac + 60.0 * max(0, len(seed_urls) - 1)
     )
 
     def prog(msg: str) -> None:
@@ -227,11 +234,30 @@ def search_once(
 
     try:
         with chrome_exclusive(timeout=fetch_timeout):
-            session = open_session(url)
+            session = open_session(seed_urls[0] if seed_urls else url)
             try:
-                cards, serp_meta = _collect_serp_cards(session, url or "", max_pages, on_progress=prog)
-                serp_pages = int(serp_meta.get("pages") or 0)
-                if serp_meta.get("needLogin"):
+                cards: List[dict] = []
+                seen_card_urls: set = set()
+                need_login = False
+                for seed_i, seed in enumerate(seed_urls or [url or ""], start=1):
+                    if not seed:
+                        continue
+                    prog(f"SERP seed {seed_i}/{len(seed_urls)}…")
+                    page_cards, serp_meta = _collect_serp_cards(
+                        session, seed, max_pages, on_progress=prog
+                    )
+                    serp_pages += int(serp_meta.get("pages") or 0)
+                    if serp_meta.get("needLogin"):
+                        need_login = True
+                        break
+                    for c in page_cards:
+                        link = norm_url(c.get("url") or "")
+                        if not link or link in seen_card_urls:
+                            continue
+                        seen_card_urls.add(link)
+                        cards.append(c)
+
+                if need_login:
                     return {
                         "ok": False,
                         "error": "Нужен вход в HH. Нажмите «Войти в HH / Открыть Chrome» и залогиньтесь.",
@@ -261,6 +287,15 @@ def search_once(
                         if link in store.seen:
                             skipped += 1
                             continue
+                    # Early Reject gate on SERP title+snippet (saves deep fetch)
+                    title0 = (c.get("title") or "").strip()
+                    snip0 = c.get("snippet") or ""
+                    rejected, _rej = hard_reject(title0, snip0)
+                    if rejected:
+                        store.remember(link)
+                        skipped += 1
+                        prog(f"  reject: {title0[:50]}")
+                        continue
                     candidates.append(c)
 
                 if max_deep > 0:
@@ -305,6 +340,15 @@ def search_once(
                                 schedule = str(details["schedule"]).strip() or schedule
                             if details.get("experience"):
                                 experience = str(details["experience"]).strip()
+
+                    rejected, rej_reasons = hard_reject(
+                        title, snippet, schedule=schedule, experience=experience
+                    )
+                    if rejected:
+                        store.remember(link)
+                        skipped += 1
+                        prog(f"  reject: {', '.join(rej_reasons[:3])}")
+                        continue
 
                     prepared.append(
                         {

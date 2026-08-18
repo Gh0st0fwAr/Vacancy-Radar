@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * VacancyRadar -> Cursor SDK vacancy scoring bridge.
- * Scores by candidate CONTEXT (cvddv.pdf + portfolio + GitHub), not Python point rules.
+ * Scores by candidate CONTEXT from payload (resume + optional portfolio/GitHub), not Python point rules.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -37,37 +37,39 @@ function buildPrompt(p) {
   const experience = String(p.experience || "").trim();
   const threshold = Number(p.threshold || 65);
   const description = String(p.description || "").slice(0, 9000);
-  const portfolioUrl =
-    String(p.portfolioUrl || "").trim() || "https://gh0st0fwar.github.io/";
-  const githubUrl =
-    String(p.githubUrl || "").trim() || "https://github.com/Gh0st0fwAr";
-  const resumePath = String(p.resumePath || "").trim() || "cvddv.pdf";
+  const portfolioUrl = String(p.portfolioUrl || "").trim();
+  const githubUrl = String(p.githubUrl || "").trim();
+  const resumePath = String(p.resumePath || "").trim();
   const guidance = String(p.scoringRules || "").trim() || loadLocalRubric();
-  const candidate =
-    String(p.candidateProfile || "").trim() ||
-    `=== CANDIDATE (fallback) ===
-Resume: ${resumePath}. Portfolio: ${portfolioUrl} and https://Gh0st0fwAr.github.io/. GitHub: ${githubUrl}.
+  const candidateProfile = String(p.candidateProfile || "").trim();
+
+  const portfolioLine = portfolioUrl || "(not set)";
+  const githubLine = githubUrl || "(not set)";
+  const resumeLine = resumePath || "(not set)";
+
+  const candidate = candidateProfile
+    ? candidateProfile
+    : `=== CANDIDATE (empty) ===
+Profile not provided. Python must inject candidateProfile (resume text + optional links).
+Do NOT invent a candidate. Return score=0, accept=false.
 === END ===`;
 
-  return `You score job vacancies for Daniil Virin using CONTEXT judgment only.
+  return `You score job vacancies using CONTEXT judgment only.
 Do NOT apply a fixed Python-style point table (+20 remote, +25 Vue, etc.).
-Decide FIT from resume + portfolio demos + GitHub + vacancy text.
+Decide FIT from the CANDIDATE block (resume + optional portfolio/GitHub) + vacancy text.
 Reply with JSON only.
 
-CANONICAL CONTEXT LINKS:
-- Resume file: ${resumePath}
-- Portfolio: ${portfolioUrl}
-- Portfolio (same): https://Gh0st0fwAr.github.io/
-- GitHub: ${githubUrl}
-Do not refuse scoring if URLs cannot be fetched — context is already embedded below.
+CANDIDATE LINKS (from payload; do not invent missing values):
+- Resume file: ${resumeLine}
+- Portfolio: ${portfolioLine}
+- GitHub: ${githubLine}
+Do not refuse scoring if URLs cannot be fetched — context is already embedded below when provided.
 
-CALIBRATION (same as SCORING_CONTEXT.md; target ±6 vs agent gold set):
-- Resume header: Frontend Developer (Vue 3, TypeScript) · Middle.
-- Senior/Lead in vacancy title: minus 8–12, not zero if the core stack is Vue.
-- "Confident Nuxt" is a minus; Vue3+TS+remote can still score 74–86.
-- PHP/Laravel/Symfony/Nest as half the role: 60–68, accept=false even if Vue is in parentheses.
-- Do not inflate score to meet threshold. Senior Vue 74–78 is honest; 100 is wrong.
-- Vue-core remote SPA (LAB / IdaProject / 585GOLD class) stays high 80s. Keep them above 70.
+CALIBRATION:
+- Anchor on the resume header and stated grade in the CANDIDATE block.
+- Senior/Lead in vacancy title: minus 8–12, not zero if the core stack matches the profile.
+- Do not inflate score to meet threshold. Honest sub-threshold FIT => accept=false.
+- If CANDIDATE block is empty or says profile not provided: score=0, accept=false.
 
 ${candidate}
 
@@ -132,7 +134,7 @@ async function main() {
 
   if (!String(payload.candidateProfile || "").trim()) {
     process.stderr.write(
-      "WARN: candidateProfile empty � missing cvddv/portfolio block from Python\n"
+      "WARN: candidateProfile empty — scoring will return 0/false; inject profile from Python\n"
     );
   }
 

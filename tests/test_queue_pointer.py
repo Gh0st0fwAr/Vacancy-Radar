@@ -131,7 +131,24 @@ class TestQueueStoreOpenNext:
 
 
 class TestCoverLetter:
-    def test_local_letter_has_contacts_and_no_score_leak(self):
+    def test_local_letter_has_contacts_and_no_score_leak(self, tmp_path, monkeypatch):
+        from radar import user_profile as up
+
+        data = tmp_path / "data"
+        uploads = data / "uploads"
+        uploads.mkdir(parents=True)
+        monkeypatch.setattr(up, "DATA", data)
+        monkeypatch.setattr(up, "ROOT", tmp_path)
+        monkeypatch.setattr(up, "PROFILE_PATH", data / "user_profile.json")
+        monkeypatch.setattr(up, "UPLOADS_DIR", uploads)
+        monkeypatch.setattr(up, "RESUME_TEXT_CACHE", uploads / "resume_text.txt")
+        monkeypatch.setattr(up, "UPLOAD_LOG_PATH", data / "upload_log.jsonl")
+        up.set_links(
+            portfolio_url="https://gh0st0fwar.github.io/",
+            telegram="@daniil_virin",
+            email="39dv@mail.ru",
+        )
+
         letter, src = make_cover_letter(
             "Vue Developer",
             company="TestCo",

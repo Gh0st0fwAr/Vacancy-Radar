@@ -16,11 +16,25 @@ from .metrics_log import append_event
 BRIDGE = ROOT / "cursor_bridge" / "generate_letter.mjs"
 RULES_CWD = ROOT.parent
 
-HEADER = (
-    "Портфолио: https://gh0st0fwar.github.io/\n"
-    "Telegram: @daniil_virin\n"
-    "Email: 39dv@mail.ru\n"
-)
+
+def letter_header() -> str:
+    """Build cover-letter header from user profile (no hard-coded contacts)."""
+    links = links_dict()
+    lines: list[str] = []
+    portfolio = (links.get("portfolioUrl") or "").strip()
+    telegram = (links.get("telegram") or "").strip()
+    email = (links.get("email") or "").strip()
+    if portfolio:
+        lines.append(f"Портфолио: {portfolio}")
+    if telegram:
+        lines.append(f"Telegram: {telegram}")
+    if email:
+        lines.append(f"Email: {email}")
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+# Backward-compatible name used by local letter builder / tests.
+HEADER = ""  # resolved at call time via letter_header()
 
 # Маркер старого тупого шаблона — чтобы пересобрать уже лежащие в очереди.
 STALE_MARKERS = (
@@ -143,6 +157,8 @@ def _via_cursor(
         "portfolioUrl": links["portfolioUrl"],
         "githubUrl": links["githubUrl"],
         "resumePath": links.get("resumePath") or "",
+        "telegram": links.get("telegram") or "",
+        "email": links.get("email") or "",
     }
     timeout = int(cfg.get("cover_letter_timeout_sec") or 90)
 
@@ -390,19 +406,23 @@ def _via_local(
         f"{_fit_sentence(title, company, themes)}"
     )
 
-    parts = [
-        HEADER.rstrip(),
-        "",
-        "Здравствуйте!",
-        f"Заинтересовала ваша вакансия {title}.",
-        "",
-        intro,
-        "",
-        " ".join(body_blocks[:3]),
-        "",
-        _nms_anchor(themes),
-        "",
-    ]
+    parts: list[str] = []
+    hdr = letter_header().rstrip()
+    if hdr:
+        parts.extend([hdr, ""])
+    parts.extend(
+        [
+            "Здравствуйте!",
+            f"Заинтересовала ваша вакансия {title}.",
+            "",
+            intro,
+            "",
+            " ".join(body_blocks[:3]),
+            "",
+            _nms_anchor(themes),
+            "",
+        ]
+    )
     if "nuxt" not in themes:
         parts.append(_BLOCKS["nuxt"])
         parts.append("")

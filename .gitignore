@@ -8,6 +8,16 @@ data/radar.log
 data/*.bak
 data/cursor_score_metrics.jsonl
 data/cursor_score_bench.json
+
+# Live user profile / preferences / references (examples stay tracked)
+data/user_profile.json
+data/preferences.json
+data/references.json
+data/uploads/
+!data/uploads/.gitkeep
+data/upload_log.jsonl
+data/radar_metrics.jsonl
+data/stats_watcher.txt
 _probe_*.py
 _probe_*.txt
 _run_*.py

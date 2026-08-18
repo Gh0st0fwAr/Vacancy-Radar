@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * VacancyRadar -> Cursor SDK bridge for cover letters.
- * Payload: { title, company, description, salary, reasons, model?, apiKey?, cwd?, returnMeta? }
+ * Payload: { title, company, description, salary, reasons, candidateProfile,
+ *            portfolioUrl?, githubUrl?, resumePath?, telegram?, email?, model?, apiKey?, cwd?, returnMeta? }
  * stdout: plain letter OR JSON {ok, letter, usage, elapsed_ms} if returnMeta=true
  */
 import fs from "node:fs";
@@ -23,40 +24,57 @@ function readPayload() {
   return JSON.parse(raw);
 }
 
+function buildHeaderLines(p) {
+  const lines = [];
+  const portfolioUrl = String(p.portfolioUrl || "").trim();
+  const telegram = String(p.telegram || "").trim();
+  const email = String(p.email || "").trim();
+  if (portfolioUrl) lines.push(`Портфолио: ${portfolioUrl}`);
+  if (telegram) lines.push(`Telegram: ${telegram}`);
+  if (email) lines.push(`Email: ${email}`);
+  return lines;
+}
+
 function buildPrompt(p) {
-  const title = (p.title || "Frontend").trim();
+  const title = (p.title || "Vacancy").trim();
   const company = (p.company || "").trim();
   const salary = (p.salary || "").trim();
   const reasons = Array.isArray(p.reasons) ? p.reasons.join("; ") : "";
   const description = String(p.description || "").slice(0, 12000);
-  const portfolioUrl =
-    String(p.portfolioUrl || "").trim() || "https://gh0st0fwar.github.io/";
-  const githubUrl =
-    String(p.githubUrl || "").trim() || "https://github.com/Gh0st0fwAr";
-  const resumePath = String(p.resumePath || "").trim() || "cvddv.pdf";
+  const portfolioUrl = String(p.portfolioUrl || "").trim();
+  const githubUrl = String(p.githubUrl || "").trim();
+  const resumePath = String(p.resumePath || "").trim();
   const candidate = String(p.candidateProfile || "").trim();
+  const headerLines = buildHeaderLines(p);
+  const headerBlock =
+    headerLines.length > 0
+      ? headerLines.join("\n")
+      : "(no contact header — omit header section or use only what profile implies)";
+
+  const profileSection = candidate
+    ? `ПРОФИЛЬ КАНДИДАТА (единственный источник правды — опыт, стек, предпочтения):\n${candidate}\n`
+    : `ПРОФИЛЬ КАНДИДАТА: не передан.
+НЕ выдумывай имя, опыт, стек или контакты. Откажись от генерации или верни минимальный отказ без вымышленных фактов.\n`;
 
   return `Ты пишешь сопроводительное письмо для отклика на вакансию.
-Кандидат: Даниил Вирин, Middle frontend (Vue), 6+ лет коммерции.
-Контекст тот же, что у скоринга SDK и IDE Cursor: резюме ${resumePath}, портфолио ${portfolioUrl}, GitHub ${githubUrl}.
-Рабочая папка: при необходимости опирайся на .cursor/rules/vacancy-rounds.mdc и VacancyRadar/cursor_bridge/SCORING_CONTEXT.md
+Контекст кандидата: резюме${resumePath ? ` (${resumePath})` : ""}${portfolioUrl ? `, портфолио ${portfolioUrl}` : ""}${githubUrl ? `, GitHub ${githubUrl}` : ""}.
+Рабочая папка: при необходимости опирайся на VacancyRadar/cursor_bridge/SCORING_CONTEXT.md
 
-${candidate ? `ПРОФИЛЬ КАНДИДАТА (из cvddv.pdf + ссылки — доверяй этому блоку):\n${candidate}\n` : ""}
+${profileSection}
 
 ЖЁСТКИЕ ПРАВИЛА ПИСЬМА:
-- Шапка ровно так (три строки):
-  Портфолио: ${portfolioUrl}
-  Telegram: @daniil_virin
-  Email: 39dv@mail.ru
+- Шапка (только непустые строки из payload, в этом порядке):
+${headerBlock}
 - Далее: Здравствуйте!
 - Далее: Заинтересовала ваша вакансия ${title}.
-- Опыт: 6+ лет (не 5+). Сильный Vue; Nuxt — Junior / активный рост, без завышения.
-- Формат: «Ищу удалённую работу» — без Новодвинска, без офиса/гибрида.
-- ЗП: ориентир ~160k на руки, до ~200k обсуждаемо.
+- Опыт, стек, грейд и сильные стороны — ТОЛЬКО из блока ПРОФИЛЬ КАНДИДАТА; не завышай и не придумывай.
+- Если профиль пуст — не выдумывай цифры опыта, технологии или имя.
+- Формат работы: если в профиле указано предпочтение удалёнки — упомяни «Ищу удалённую работу» (или эквивалент из профиля); не добавляй офис/гибрид, если кандидат этого не ищет.
+- ЗП: упоминай только если есть в профиле; не подставляй чужие ориентиры.
 - НЕ добавляй ссылку на вакансию, мета-пометки, «ссылка на вакансию», hh, название источника.
-- НЕ дублируй портфолио в конце.
-- Письмо должно быть УНИКАЛЬНЫМ под ЭТУ вакансию: опирайся на стек/задачи из текста (что совпадает с опытом NMS/data-heavy SPA: дашборды, таблицы, карты, телеметрия, формы, Vue 2→3, Pinia, REST). Не копируй универсальный шаблон слово в слово.
-- Если в вакансии fullstack/React/Java — честно про сильный фронт на Vue и готовность добирать, без вранья.
+- НЕ дублируй портфолио в конце, если оно уже в шапке.
+- Письмо должно быть УНИКАЛЬНЫМ под ЭТУ вакансию: опирайся на стек/задачи из текста и совпадения с профилем. Не копируй универсальный шаблон слово в слово.
+- Если в вакансии стек слабо совпадает с профилем — честно про сильные стороны из резюме и готовность добирать, без вранья.
 - Длина: 1800–3200 символов, живой человеческий тон, без канцелярита и эмодзи.
 
 Вакансия:
@@ -67,7 +85,7 @@ ${candidate ? `ПРОФИЛЬ КАНДИДАТА (из cvddv.pdf + ссылки 
 
 Текст вакансии:
 """
-${description || "(текста нет — опирайся на название и типичный Vue middle)"}
+${description || "(текста нет — опирайся на название и профиль кандидата)"}
 """
 
 Ответ СТРОГО в формате:
@@ -81,7 +99,7 @@ function extractLetter(text) {
   const s = String(text || "").trim();
   const m = s.match(/<<<LETTER>>>\s*([\s\S]*?)\s*<<<END>>>/i);
   if (m) return m[1].trim();
-  if (/Портфолио:\s*https:\/\/gh0st0fwar\.github\.io/i.test(s) && /Здравствуйте/i.test(s)) {
+  if (/Здравствуйте/i.test(s) && s.length >= 200) {
     return s.replace(/^```[\w]*\n?|\n?```$/g, "").trim();
   }
   throw new Error("Cursor response missing <<<LETTER>>> block");

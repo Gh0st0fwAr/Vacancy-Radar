@@ -37,6 +37,33 @@ def score_for_search(
     cfg = cfg or load_config()
     threshold = int(cfg.get("score_threshold") or 70)
 
+    # Hard Reject gate (user preferences) — before any Cursor spend.
+    try:
+        from .preferences import hard_reject
+
+        rejected, rej_reasons = hard_reject(
+            title or "",
+            snippet or "",
+            schedule=schedule or "",
+            experience=experience or "",
+        )
+        if rejected:
+            meta = {"source": "reject_keyword", "elapsed_ms": 0, "usage": None}
+            _append_metric(
+                {
+                    "ts": time.time(),
+                    "title": (title or "")[:120],
+                    "score": 0,
+                    "accept": False,
+                    "source": "reject_keyword",
+                    "elapsed_ms": 0,
+                    "usage": None,
+                }
+            )
+            return 0, rej_reasons or ["reject"], False, meta
+    except Exception:
+        pass
+
     if not (_api_key(cfg) and BRIDGE.exists()):
         meta = {"source": "cursor_unavailable", "elapsed_ms": 0, "usage": None}
         _append_metric(
@@ -51,6 +78,26 @@ def score_for_search(
             }
         )
         return 0, ["cursor-unavailable"], False, meta
+
+    try:
+        from .user_profile import is_profile_ready
+
+        if not is_profile_ready():
+            meta = {"source": "profile_empty", "elapsed_ms": 0, "usage": None}
+            _append_metric(
+                {
+                    "ts": time.time(),
+                    "title": (title or "")[:120],
+                    "score": 0,
+                    "accept": False,
+                    "source": "profile_empty",
+                    "elapsed_ms": 0,
+                    "usage": None,
+                }
+            )
+            return 0, ["profile-empty"], False, meta
+    except Exception:
+        pass
 
     cur = _via_cursor(
         title=title,
