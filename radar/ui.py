@@ -7,6 +7,7 @@ import threading
 import traceback
 from collections import deque
 from datetime import datetime
+from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer, Signal, QObject
 from PySide6.QtGui import QAction, QIcon, QKeySequence, QShortcut
@@ -359,6 +360,14 @@ class MainWindow(QMainWindow):
         w.bind("setTheme", lambda p: self._web_set_theme(p.get("id") or "04"))
         w.bind("page", lambda _p: None)
         w.bind("_error", lambda p: self.append_log("UI: " + str((p or {}).get("error") or "")))
+        w.bind("uploadProfile", lambda p: self._web_upload_profile(p or {}))
+        w.bind("clearProfile", lambda _p: self._web_clear_profile())
+        w.bind("uploadPreferences", lambda p: self._web_upload_preferences(p or {}))
+        w.bind("uploadReferences", lambda p: self._web_upload_references(p or {}))
+        w.bind("savePack", lambda p: self._web_save_pack(p or {}))
+        w.bind("loadPack", lambda p: self._web_load_pack(p or {}))
+        w.bind("importPack", lambda p: self._web_import_pack(p or {}))
+        w.bind("downloadPack", lambda p: self._web_download_pack(p or {}))
 
     def _push_all_state(self):
         self.refresh_queue_list()
@@ -369,6 +378,13 @@ class MainWindow(QMainWindow):
             self.web.push("log", {"lines": list(self._log_lines)})
 
     def _push_settings(self):
+        from radar.scoring_state import ui_snapshot
+
+        scoring = {}
+        try:
+            scoring = ui_snapshot()
+        except Exception as e:
+            self.append_log(f"Scoring snapshot: {e}")
         self.web.push(
             "settings",
             {
@@ -379,9 +395,13 @@ class MainWindow(QMainWindow):
                 or is_autostart_enabled(),
                 "ui_theme": str(self.cfg.get("ui_theme") or "04"),
                 "scoring_mode": str(self.cfg.get("scoring_mode") or "cursor"),
+                "clear_check_days": int(self.cfg.get("clear_check_days") or 7),
                 "themes": [{"id": t, "label": THEME_LABELS.get(t, t)} for t in THEME_IDS],
+                "scoring": scoring,
             },
         )
+        if scoring:
+            self.web.push("scoring", scoring)
 
     def _web_select(self, url: str):
         if not url:
@@ -409,6 +429,12 @@ class MainWindow(QMainWindow):
             mode = str(p.get("scoring_mode") or "cursor").strip().lower()
             self.cfg["scoring_mode"] = mode if mode in ("cursor", "rules") else "cursor"
             self.append_log("Scoring mode: " + str(self.cfg["scoring_mode"]))
+        if "clear_check_days" in p:
+            try:
+                days = int(p.get("clear_check_days") or 7)
+            except (TypeError, ValueError):
+                days = 7
+            self.cfg["clear_check_days"] = max(1, min(90, days))
         if "autostart_enabled" in p:
             want = bool(p.get("autostart_enabled"))
             prev = bool(self.cfg.get("autostart_enabled", False))
@@ -422,6 +448,203 @@ class MainWindow(QMainWindow):
         save_config(self.cfg)
         apply_theme(QApplication.instance(), str(tid or "04"))
         self.append_log("Theme: " + THEME_LABELS.get(str(tid), str(tid)))
+
+    def _push_scoring(self, snap: Optional[dict] = None):
+        if snap is None:
+            try:
+                from radar.scoring_state import ui_snapshot
+
+                snap = ui_snapshot()
+            except Exception as e:
+                self.append_log(f"Scoring snapshot: {e}")
+                snap = {}
+        if hasattr(self, "web"):
+            self.web.push("scoring", snap or {})
+
+    def _scoring_upload_status(self, panel: str, status: str, error: str = ""):
+        if hasattr(self, "web"):
+            payload = {"panel": panel, "status": status}
+            if error:
+                payload["error"] = error
+            self.web.push("scoringUpload", payload)
+
+    def _web_upload_profile(self, p: dict):
+        self._scoring_upload_status("profile", "loading")
+        self.append_log("User Profile: Upload…")
+
+        def job():
+            from radar.scoring_actions import upload_profile_action
+
+            return upload_profile_action(
+                resume_b64=str(p.get("resume_b64") or ""),
+                resume_filename=str(p.get("resume_filename") or ""),
+                portfolio_url=str(p.get("portfolio_url") or ""),
+                github_url=str(p.get("github_url") or ""),
+                activity_sphere=str(p.get("activity_sphere") or ""),
+                cfg=self.cfg,
+            )
+
+        def ok(result):
+            snap = (result or {}).get("snapshot") or {}
+            self._push_scoring(snap)
+            self._scoring_upload_status("profile", "ok")
+            if (result or {}).get("noop"):
+                self.append_log("User Profile: уже актуально (noop)")
+            else:
+                self.append_log("User Profile: анализ Cursor завершён")
+
+        def fail(err: str):
+            self._scoring_upload_status("profile", "error", err or "fail")
+            self.append_log("User Profile FAIL: " + (err or "").splitlines()[0][:200])
+
+        self._run_bg(job, ok, fail, timeout_sec=180)
+
+    def _web_clear_profile(self):
+        try:
+            from radar.scoring_actions import clear_profile_action
+
+            result = clear_profile_action()
+            self._push_scoring((result or {}).get("snapshot"))
+            self.append_log("User Profile: cleared")
+        except Exception as e:
+            self.append_log(f"User Profile clear FAIL: {e}")
+
+    def _web_upload_preferences(self, p: dict):
+        self._scoring_upload_status("preferences", "loading")
+        self.append_log("Preferences: Upload…")
+        prefs = p.get("preferences") or {}
+
+        def job():
+            from radar.scoring_actions import upload_preferences_action
+
+            return upload_preferences_action(prefs, cfg=self.cfg)
+
+        def ok(result):
+            self._push_scoring((result or {}).get("snapshot"))
+            self._scoring_upload_status("preferences", "ok")
+            if (result or {}).get("noop"):
+                self.append_log("Preferences: уже актуально (noop)")
+            else:
+                self.append_log("Preferences: калибровка Cursor завершена")
+
+        def fail(err: str):
+            self._scoring_upload_status("preferences", "error", err or "fail")
+            self.append_log("Preferences FAIL: " + (err or "").splitlines()[0][:200])
+
+        self._run_bg(job, ok, fail, timeout_sec=180)
+
+    def _web_upload_references(self, p: dict):
+        self._scoring_upload_status("references", "loading")
+        self.append_log("Vacancy References: Upload…")
+        urls = p.get("urls") or []
+
+        def job():
+            from radar.scoring_actions import upload_references_action
+
+            return upload_references_action(urls, cfg=self.cfg)
+
+        def ok(result):
+            self._push_scoring((result or {}).get("snapshot"))
+            self._scoring_upload_status("references", "ok")
+            if (result or {}).get("noop"):
+                self.append_log("References: уже актуально (noop)")
+            else:
+                self.append_log("References: калибровка Cursor завершена")
+
+        def fail(err: str):
+            self._scoring_upload_status("references", "error", err or "fail")
+            self.append_log("References FAIL: " + (err or "").splitlines()[0][:200])
+
+        self._run_bg(job, ok, fail, timeout_sec=300)
+
+    def _web_save_pack(self, p: dict):
+        name = str(p.get("name") or "").strip()
+        if not name:
+            self.append_log("Saved profiles: пустое имя")
+            return
+
+        def job():
+            from radar.scoring_actions import save_pack_action
+
+            return save_pack_action(name)
+
+        def ok(result):
+            self._push_scoring((result or {}).get("snapshot"))
+            self.append_log(f"Saved profiles: сохранён «{name}»")
+
+        def fail(err: str):
+            self.append_log("Saved profiles SAVE FAIL: " + (err or "").splitlines()[0][:200])
+
+        self._run_bg(job, ok, fail, timeout_sec=60)
+
+    def _web_load_pack(self, p: dict):
+        name = str(p.get("name") or "").strip()
+        if not name:
+            self.append_log("Saved profiles: выберите профиль")
+            return
+
+        def job():
+            from radar.scoring_actions import load_pack_action
+
+            return load_pack_action(name)
+
+        def ok(result):
+            self._push_scoring((result or {}).get("snapshot"))
+            self.append_log(f"Saved profiles: загружен «{name}»")
+
+        def fail(err: str):
+            self.append_log("Saved profiles LOAD FAIL: " + (err or "").splitlines()[0][:200])
+
+        self._run_bg(job, ok, fail, timeout_sec=60)
+
+    def _web_import_pack(self, p: dict):
+        b64 = str(p.get("pack_b64") or "")
+        filename = str(p.get("filename") or "pack.json")
+        if not b64:
+            self.append_log("Saved profiles: нет файла")
+            return
+
+        def job():
+            from radar.scoring_actions import import_pack_b64_action
+
+            return import_pack_b64_action(filename, b64)
+
+        def ok(result):
+            self._push_scoring((result or {}).get("snapshot"))
+            self.append_log(f"Saved profiles: импортирован {filename}")
+
+        def fail(err: str):
+            self.append_log("Saved profiles IMPORT FAIL: " + (err or "").splitlines()[0][:200])
+
+        self._run_bg(job, ok, fail, timeout_sec=60)
+
+    def _web_download_pack(self, p: dict):
+        """Save current config (or named pack) to a user-chosen JSON file."""
+        from PySide6.QtWidgets import QFileDialog
+
+        name = str(p.get("name") or "").strip()
+        try:
+            from radar.scoring_actions import save_pack_action
+            from radar.profile_packs import export_pack_to_path, list_packs
+
+            # Ensure a pack exists: use name, or snapshot as "current"
+            pack_name = name or "current"
+            if pack_name not in list_packs() or pack_name == "current" or not name:
+                save_pack_action(pack_name)
+            default = f"{pack_name}.json"
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Download config",
+                default,
+                "JSON (*.json)",
+            )
+            if not path:
+                return
+            export_pack_to_path(pack_name, path)
+            self._push_scoring()
+            self.append_log(f"Saved profiles: скачан {path}")
+        except Exception as e:
+            self.append_log(f"Saved profiles DOWNLOAD FAIL: {e}")
 
     def _push_detail(self, url: str):
         v = next((x for x in self.store.items if x.url == url), None)
@@ -956,8 +1179,9 @@ class MainWindow(QMainWindow):
         self._busy_search = True
         self.web.set_busy(search=True)
         if clear_check:
-            self.append_log("Clear Check: полная перепроверка SERP (2 дня)…")
-            self._set_activity(busy=True, line="Clear Check: загрузка SERP…")
+            days = int(self.cfg.get("clear_check_days") or 7)
+            self.append_log(f"Clear Check: SERP за последние {days} дн.…")
+            self._set_activity(busy=True, line=f"Clear Check: загрузка SERP ({days} дн.)…")
         else:
             self.append_log("Поиск HH… (Cursor parallel + письма)")
             self._set_activity(busy=True, line="Поиск: загрузка вакансий с HH…")

@@ -205,6 +205,8 @@ def build_desirable_hh_url(
 
     Returns None if Desirable is empty. Title matches on Desirable words are
     intentional (e.g. Senior in Desirable pulls Senior vacancies for scoring).
+    Out-of-sphere noise is handled by ``sphere_filter``, not by stripping
+    Desirable tokens from this query.
     """
     from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 

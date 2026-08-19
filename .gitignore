@@ -16,6 +16,10 @@ data/references.json
 data/uploads/
 !data/uploads/.gitkeep
 data/upload_log.jsonl
+data/scoring_state.json
+data/scoring_calibration.json
+data/scoring_calibration.md
+data/profile_packs/
 data/radar_metrics.jsonl
 data/stats_watcher.txt
 _probe_*.py

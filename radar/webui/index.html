@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@450;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="app.css?v=20260817a" />
+  <link rel="stylesheet" href="app.css?v=20260819c" />
   <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 </head>
 <body>
@@ -131,7 +131,114 @@
       <!-- SETTINGS -->
       <div class="page page-panel" id="page-settings" hidden>
         <h1 class="page-title">Settings</h1>
-        <p class="page-sub">Behavior, hotkey, theme, Chrome session.</p>
+        <p class="page-sub">Profile, scoring preferences, behavior, hotkey, theme.</p>
+
+        <!-- scoring UI wired in app.js -->
+        <div class="panel scoring-panel" id="panel-user-profile">
+          <h3>User Profile</h3>
+          <div class="field-row top">
+            <div class="field-label">CV <span class="opt">(pdf / md / txt)</span></div>
+            <div>
+              <div class="dropzone" id="up-cv-dropzone">
+                <span class="dropzone-text">Drop CV here or browse — PDF / MD / TXT</span>
+                <span class="choose btn btn-ghost" id="btn-up-cv-browse" style="padding:8px 12px;font-size:12.5px">Choose file</span>
+                <input type="file" id="up-cv-file" accept=".pdf,.md,.txt,.markdown" tabindex="-1" />
+              </div>
+              <div class="cv-name-row">
+                <span class="cv-name" id="up-cv-name"></span>
+                <button class="btn btn-ghost btn-sm" type="button" id="up-cv-clear">Clear CV</button>
+              </div>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-label">Portfolio Link <span class="opt">(optional)</span><span class="rec">RECOMMENDED</span></div>
+            <input class="input" type="url" id="up-portfolio" placeholder="https://…" disabled />
+          </div>
+          <div class="field-row">
+            <div class="field-label">Activity sphere <span class="opt">(role filter)</span><span class="rec">RECOMMENDED</span></div>
+            <input class="input" type="text" id="up-sphere" placeholder="e.g. Разработчик, Дизайнер, QA…" disabled />
+          </div>
+          <div class="field-row">
+            <div class="field-label">GitHub Link <span class="opt">(optional)</span><span class="rec">RECOMMENDED</span></div>
+            <input class="input" type="url" id="up-github" placeholder="https://github.com/…" disabled />
+          </div>
+          <div class="block-actions">
+            <span class="upload-status" id="up-profile-status" aria-live="polite"></span>
+            <button class="btn btn-primary" type="button" id="btn-up-profile" disabled>Upload</button>
+          </div>
+        </div>
+
+        <div class="panel scoring-panel" id="panel-preferences">
+          <h3>Preferences</h3>
+          <div class="pref-grid stack">
+            <div class="pref-bucket" data-bucket="desirable">
+              <h4>Desirable</h4>
+              <div class="pref-tags">
+                <span id="pref-tags-desirable"></span>
+                <input class="pref-type input-inline" type="text" id="pref-input-desirable" placeholder="Add…" />
+              </div>
+            </div>
+            <div class="pref-bucket" data-bucket="neutral">
+              <h4>Neutral</h4>
+              <div class="pref-tags">
+                <span id="pref-tags-neutral"></span>
+                <input class="pref-type input-inline" type="text" id="pref-input-neutral" placeholder="Add…" />
+              </div>
+            </div>
+            <div class="pref-bucket" data-bucket="undesirable">
+              <h4>Undesirable</h4>
+              <div class="pref-tags">
+                <span id="pref-tags-undesirable"></span>
+                <input class="pref-type input-inline" type="text" id="pref-input-undesirable" placeholder="Add…" />
+              </div>
+            </div>
+            <div class="pref-bucket" data-bucket="reject">
+              <h4>Reject</h4>
+              <div class="pref-tags">
+                <span id="pref-tags-reject"></span>
+                <input class="pref-type input-inline" type="text" id="pref-input-reject" placeholder="Add…" />
+              </div>
+            </div>
+          </div>
+          <div class="block-actions">
+            <span class="upload-status" id="up-pref-status" aria-live="polite"></span>
+            <button class="btn btn-primary" type="button" id="btn-up-preferences">Upload</button>
+          </div>
+        </div>
+
+        <div class="panel scoring-panel" id="panel-references">
+          <h3>Vacancy References</h3>
+          <div id="ref-list">
+            <div class="ref-row">
+              <input class="input" type="url" placeholder="https://…" />
+              <button class="x-row" type="button" aria-label="Remove reference">×</button>
+            </div>
+          </div>
+          <div class="panel-row" style="margin:4px 0 0">
+            <button class="btn" type="button" id="btn-ref-add">Add Reference</button>
+          </div>
+          <div class="block-actions">
+            <span class="upload-status" id="up-ref-status" aria-live="polite"></span>
+            <button class="btn btn-primary" type="button" id="btn-up-references">Upload</button>
+          </div>
+        </div>
+
+        <div class="panel" id="panel-profile-packs">
+          <h3>Saved profiles</h3>
+          <p class="panel-sub">Snapshot resume + preferences + references under a name.</p>
+          <div class="pack-row">
+            <label class="field-label pack-label" for="pack-name">Name</label>
+            <input class="input pack-name" type="text" id="pack-name" placeholder="e.g. daniil" />
+            <select class="select pack-select" id="pack-select">
+              <option value="">— select —</option>
+            </select>
+            <button class="btn btn-primary" type="button" id="btn-pack-save">Save</button>
+            <button class="btn" type="button" id="btn-pack-load">Load</button>
+            <button class="btn btn-ghost" type="button" id="btn-pack-download">Download config</button>
+            <button class="btn btn-ghost" type="button" id="btn-pack-import">Load from file</button>
+          </div>
+        </div>
+
         <div class="panel">
           <h3>Hotkey</h3>
           <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px">
@@ -150,13 +257,15 @@
           <label class="toggle"><input type="checkbox" id="opt-dnd" /> <span>DND - mute all sounds</span></label>
           <label class="toggle"><input type="checkbox" id="opt-min" /> <span>Minimize previous window on hotkey</span></label>
           <label class="toggle"><input type="checkbox" id="opt-autostart" /> <span>Launch at system startup</span></label>
-          <div class="panel-row" style="align-items:center;margin-top:12px">
-            <label for="opt-scoring" style="color:var(--text-dim)">Vacancy scoring</label>
+          <div class="panel-row behavior-scoring-row">
+            <label for="opt-scoring" class="field-label inline">Vacancy scoring</label>
             <select id="opt-scoring" class="select">
               <option value="hybrid">Hybrid (rules → Cursor)</option>
               <option value="cursor">Cursor SDK only</option>
               <option value="rules">Python rules</option>
             </select>
+            <label for="opt-clear-check-days" class="field-label inline">Clear Check Range (days)</label>
+            <input class="input input-narrow" type="number" id="opt-clear-check-days" min="1" max="30" value="2" />
           </div>
         </div>
         <div class="panel">
@@ -178,6 +287,6 @@
       <div class="updated" id="strip-updated">Last Updated: -</div>
     </footer>
   </div>
-  <script src="app.js?v=20260817a"></script>
+  <script src="app.js?v=20260819c"></script>
 </body>
 </html>

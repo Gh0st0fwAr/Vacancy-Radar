@@ -30,6 +30,7 @@ EMPTY_PROFILE: Dict[str, str] = {
     "github_url": "",
     "telegram": "",
     "email": "",
+    "activity_sphere": "",
     "updated_at": "",
 }
 
@@ -164,17 +165,20 @@ def _truncate(text: str, max_chars: int) -> str:
     return text
 
 
-def upload_resume(src_path: PathLike) -> Dict[str, str]:
+def upload_resume(src_path: PathLike, *, original_filename: Optional[str] = None) -> Dict[str, str]:
     """
     Copy resume into data/uploads/ with a safe name, cache extracted text,
     update profile, append upload_log.jsonl.
+
+    original_filename: display name when src is a temp path (e.g. base64 upload).
     """
     src = Path(src_path).expanduser().resolve()
     if not src.is_file():
         raise FileNotFoundError(f"Resume file not found: {src}")
 
     _ensure_uploads()
-    safe = _safe_filename(src.name)
+    display_name = (original_filename or src.name or "resume").strip() or "resume"
+    safe = _safe_filename(display_name)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     dest_name = f"{stamp}_{safe}"
     dest = UPLOADS_DIR / dest_name
@@ -186,7 +190,7 @@ def upload_resume(src_path: PathLike) -> Dict[str, str]:
     rel = f"data/uploads/{dest_name}".replace("\\", "/")
     profile = load_profile()
     profile["resume_path"] = rel
-    profile["resume_filename"] = src.name
+    profile["resume_filename"] = Path(display_name).name
     profile["updated_at"] = _utc_now()
     saved = save_profile(profile)
 
@@ -196,12 +200,17 @@ def upload_resume(src_path: PathLike) -> Dict[str, str]:
             "event": "upload_resume",
             "src": str(src),
             "dest": rel,
-            "filename": src.name,
+            "filename": profile["resume_filename"],
             "bytes": dest.stat().st_size if dest.is_file() else 0,
             "text_chars": len(text),
         }
     )
-    logger.info("Resume uploaded: %s -> %s (%s chars text)", src.name, rel, len(text))
+    logger.info(
+        "Resume uploaded: %s -> %s (%s chars text)",
+        profile["resume_filename"],
+        rel,
+        len(text),
+    )
     return saved
 
 
@@ -210,8 +219,9 @@ def set_links(
     github_url: Optional[str] = None,
     telegram: Optional[str] = None,
     email: Optional[str] = None,
+    activity_sphere: Optional[str] = None,
 ) -> Dict[str, str]:
-    """Update optional portfolio / GitHub / contact fields (None = leave unchanged)."""
+    """Update optional portfolio / GitHub / contact / sphere fields (None = leave unchanged)."""
     profile = load_profile()
     if portfolio_url is not None:
         profile["portfolio_url"] = str(portfolio_url).strip()
@@ -221,6 +231,8 @@ def set_links(
         profile["telegram"] = str(telegram).strip()
     if email is not None:
         profile["email"] = str(email).strip()
+    if activity_sphere is not None:
+        profile["activity_sphere"] = str(activity_sphere).strip()
     profile["updated_at"] = _utc_now()
     return save_profile(profile)
 
@@ -286,6 +298,7 @@ def links_dict() -> Dict[str, str]:
         "resumePath": str(path) if path else "",
         "telegram": (p.get("telegram") or "").strip(),
         "email": (p.get("email") or "").strip(),
+        "activitySphere": (p.get("activity_sphere") or "").strip(),
     }
 
 
@@ -309,6 +322,7 @@ def build_candidate_block() -> str:
     path = resolve_resume_path(profile)
     portfolio = (profile.get("portfolio_url") or "").strip()
     github = (profile.get("github_url") or "").strip()
+    sphere = (profile.get("activity_sphere") or "").strip()
     filename = (profile.get("resume_filename") or (path.name if path else "")).strip()
 
     lines = [
@@ -317,6 +331,12 @@ def build_candidate_block() -> str:
     ]
     if path:
         lines.append(f"Resume file path: {path}")
+    if sphere:
+        lines.append(f"Target activity sphere: {sphere}")
+        lines.append(
+            "Reject vacancies that are clearly a different profession "
+            "(e.g. sales/SMM/marketing/HR when sphere is Developer)."
+        )
     if portfolio:
         lines.append(f"Portfolio: {portfolio}")
     if github:

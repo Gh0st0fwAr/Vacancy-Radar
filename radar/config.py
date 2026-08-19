@@ -73,6 +73,7 @@ DEFAULT_CONFIG = {
     # Embedded WebEngine zoom (1.0 = CSS px as-is). Not a Chrome browser tab.
     "ui_zoom": 1.35,
     "autostart_enabled": False,
+    "clear_check_days": 7,
 }
 
 

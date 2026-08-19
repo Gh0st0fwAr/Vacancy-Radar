@@ -54,6 +54,16 @@ def load_scoring_context() -> str:
     except Exception:
         pass
     try:
+        from .user_profile import load_profile
+        from .sphere_filter import build_sphere_prompt_block
+
+        sphere = (load_profile().get("activity_sphere") or "").strip()
+        sph = build_sphere_prompt_block(sphere)
+        if sph:
+            parts.append(sph)
+    except Exception:
+        pass
+    try:
         from .references import build_references_prompt_block
 
         refs = build_references_prompt_block()

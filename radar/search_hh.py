@@ -135,6 +135,15 @@ def load_excludes(cfg: Optional[dict] = None) -> set:
     return out
 
 
+def _with_search_period(url: str, days: int) -> str:
+    """Set/replace the search_period query param. HH uses integer days."""
+    days = max(1, int(days))
+    parsed = urlparse(url)
+    q = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k != "search_period"]
+    q.append(("search_period", str(days)))
+    return urlunparse(parsed._replace(query=urlencode(q)))
+
+
 def _serp_page_url(base: str, page: int) -> str:
     parsed = urlparse(base)
     q = dict(parse_qsl(parsed.query, keep_blank_values=True))
@@ -215,10 +224,18 @@ def search_once(
     t0 = time.time()
 
     from .preferences import hard_reject, search_seed_urls
+    from .sphere_filter import hard_reject_out_of_sphere
+    from .user_profile import load_profile
+
+    activity_sphere = (load_profile().get("activity_sphere") or "").strip()
 
     seed_urls = search_seed_urls(url or "")
     if not seed_urls and url:
         seed_urls = [str(url)]
+
+    if clear_check:
+        cc_days = int(cfg.get("clear_check_days") or 7)
+        seed_urls = [_with_search_period(u, cc_days) for u in seed_urls]
 
     per_vac = 18.0 if deep else 4.0
     # Extra SERP seeds (Desirable OR-query) need more chrome time
@@ -296,6 +313,14 @@ def search_once(
                         skipped += 1
                         prog(f"  reject: {title0[:50]}")
                         continue
+                    rejected, _rej = hard_reject_out_of_sphere(
+                        title0, snip0, sphere=activity_sphere
+                    )
+                    if rejected:
+                        store.remember(link)
+                        skipped += 1
+                        prog(f"  sphere-reject: {title0[:50]}")
+                        continue
                     candidates.append(c)
 
                 if max_deep > 0:
@@ -348,6 +373,14 @@ def search_once(
                         store.remember(link)
                         skipped += 1
                         prog(f"  reject: {', '.join(rej_reasons[:3])}")
+                        continue
+                    rejected, rej_reasons = hard_reject_out_of_sphere(
+                        title, snippet, sphere=activity_sphere
+                    )
+                    if rejected:
+                        store.remember(link)
+                        skipped += 1
+                        prog(f"  sphere-reject: {', '.join(rej_reasons[:3])}")
                         continue
 
                     prepared.append(

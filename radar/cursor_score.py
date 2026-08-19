@@ -64,6 +64,32 @@ def score_for_search(
     except Exception:
         pass
 
+    # Hard sphere gate (activity_sphere) — before Cursor spend.
+    try:
+        from .sphere_filter import hard_reject_out_of_sphere
+        from .user_profile import load_profile
+
+        sphere = (load_profile().get("activity_sphere") or "").strip()
+        rejected, rej_reasons = hard_reject_out_of_sphere(
+            title or "", snippet or "", sphere=sphere
+        )
+        if rejected:
+            meta = {"source": "sphere_reject", "elapsed_ms": 0, "usage": None}
+            _append_metric(
+                {
+                    "ts": time.time(),
+                    "title": (title or "")[:120],
+                    "score": 0,
+                    "accept": False,
+                    "source": "sphere_reject",
+                    "elapsed_ms": 0,
+                    "usage": None,
+                }
+            )
+            return 0, rej_reasons or ["sphere-reject"], False, meta
+    except Exception:
+        pass
+
     if not (_api_key(cfg) and BRIDGE.exists()):
         meta = {"source": "cursor_unavailable", "elapsed_ms": 0, "usage": None}
         _append_metric(

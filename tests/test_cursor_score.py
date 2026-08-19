@@ -89,8 +89,8 @@ class TestCursorViaMock:
                 with patch("radar.user_profile.is_profile_ready", return_value=True):
                     with patch("radar.cursor_score._via_cursor", return_value=fake):
                         sc, reasons, ok, meta = score_for_search(
-                            title="Java backend",
-                            snippet="Java Spring",
+                            title="Ruby on Rails backend",
+                            snippet="Ruby Rails ActiveRecord",
                             cfg=cfg,
                         )
         assert sc == 45
