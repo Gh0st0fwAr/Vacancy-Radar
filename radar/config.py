@@ -34,11 +34,7 @@ DEFAULT_CONFIG = {
     "chrome_debug_port": 9222,
     "hh_search_url": (
         "https://hh.ru/search/vacancy?"
-        "text=Vue+OR+Vue2+OR+Vue3+OR+Nuxt+OR+TypeScript"
-        "+OR+Fullstack+OR+Full-stack+OR+%22Full+stack%22"
-        "+OR+%D0%A4%D1%83%D0%BB%D0%BB%D1%81%D1%82%D0%B5%D0%BA"
-        "+OR+%D0%A4%D1%83%D0%BB%D1%81%D1%82%D0%B5%D0%BA"
-        "&search_field=name&search_field=description"
+        "search_field=name&search_field=description"
         "&schedule=remote"
         "&order_by=publication_time"
         "&search_period=2"
@@ -66,8 +62,13 @@ DEFAULT_CONFIG = {
     "scoring_mode": "cursor",
     "python_only": False,
     "cursor_score_timeout_sec": 120,
+    "title_score_workers": 3,
     "cursor_score_workers": 5,
     "cursor_letter_workers": 5,
+    # Minimum score a vacancy must reach to be added to queue (0 = no filter).
+    "min_score": 0,
+    # search_period (days) used by regular Search Now.
+    "search_now_period": 2,
     # UI: 04 = hybrid default (see references/04_*.png)
     "ui_theme": "04",
     # Embedded WebEngine zoom (1.0 = CSS px as-is). Not a Chrome browser tab.

@@ -1,0 +1,18 @@
+{
+  "label": "design-clear-check-2026-08-19-2034",
+  "aliases": [
+    "логи по дизайну",
+    "давай логи по дизайну",
+    "design logs",
+    "clear check дизайн",
+    "настя дизайн лог",
+    "рекомендации поиск",
+    "рекомендации по поиску"
+  ],
+  "path_json": "data/analysis/design_clearcheck_2026-08-19.json",
+  "path_md": "data/analysis/design_clearcheck_2026-08-19.md",
+  "path_html": "data/analysis/design_clearcheck_2026-08-19.html",
+  "path_recommendations_html": "data/analysis/search_system_recommendations.html",
+  "created_at": "2026-08-19T18:04:35.925504+00:00",
+  "recommendations_updated_at": "2026-08-19T20:45:00+00:00"
+}

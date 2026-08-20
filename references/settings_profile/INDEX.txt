@@ -1,0 +1,13 @@
+Settings · User Profile / Preferences / Vacancy Reference
+Снято с реального CSS VacancyRadar (radar/webui/app.css), страница Settings, ширина 1920px.
+
+v01.png  1920×2177  Три panel + черта. Prefs 2×2. CV как поле + Choose file.
+v02.png  1920×2099  Один panel, три секции через hr. Native <input type="file">.
+v03.png  1920×2011  Prefs в четыре колонки. У ссылок крестик справа.
+v04.png  1920×2192  CV dropzone (пунктир).
+v05.png  1920×2073  Компактные теги и отступы.
+v06.png  1920×2345  Prefs столбиком (stack). Один общий panel.
+
+Теги: фон как зелёная строка очереди (--pointer-bg), текст --pointer-fg (#8dff9a), крестик справа.
+Кнопки Upload — btn-primary как Search Now.
+HTML рядом (v01.html … v06.html) — можно открыть в браузере.

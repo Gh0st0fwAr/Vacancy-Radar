@@ -1,0 +1,231 @@
+/* Settings scoring-profile blocks — tokens from radar/webui/app.css */
+
+hr.block-rule {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 18px 0;
+}
+
+.scoring-panel .panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.scoring-panel h3 {
+  margin: 0;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  gap: 10px 16px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.field-row.top {
+  align-items: start;
+}
+.field-label {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.rec {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: rgba(15, 118, 110, 0.22);
+  border: 1px solid rgba(94, 234, 212, 0.28);
+  vertical-align: 1px;
+}
+.opt {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.input,
+.select,
+.file-input {
+  width: 100%;
+  min-width: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--r-input);
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 14px;
+}
+.file-input {
+  color: var(--text-dim);
+  padding: 7px 10px;
+}
+
+.file-fake {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--r-input);
+  padding: 6px 8px 6px 12px;
+}
+.file-fake .name {
+  flex: 1;
+  color: var(--text);
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-fake .choose {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-btn);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 650;
+  background: transparent;
+}
+.dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-input);
+  background: var(--bg-input);
+  color: var(--text-dim);
+  font-size: 13.5px;
+}
+
+.block-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.pref-grid {
+  display: grid;
+  gap: 10px;
+}
+.pref-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+.pref-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.pref-grid.stack { grid-template-columns: 1fr; }
+
+.pref-bucket {
+  background: #0a1018;
+  border: 1px solid var(--border);
+  border-radius: var(--r-input);
+  min-height: 108px;
+  padding: 10px 10px 12px;
+}
+.pref-bucket h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pref-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.pref-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 9px;
+  border-radius: 3px;
+  background: rgba(31, 92, 50, 0.42);
+  border: 1px solid rgba(61, 255, 106, 0.22);
+  color: var(--pointer-fg);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+.pref-tag .x {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--pointer-fg);
+  opacity: 0.7;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+.pref-type {
+  flex: 1;
+  min-width: 72px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 2px;
+  outline: none;
+}
+
+.ref-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ref-row .input { flex: 1; }
+.ref-row .x-row {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-btn);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+.v-compact .pref-bucket { min-height: 84px; padding: 8px; }
+.v-compact .pref-tag { font-size: 12px; padding: 3px 5px 3px 8px; }
+.v-compact .field-row { margin-bottom: 8px; }
+
+.v-wide .page { padding-left: 40px; padding-right: 40px; }
+
+@media (max-width: 1100px) {
+  .pref-grid.cols-4 { grid-template-columns: 1fr 1fr; }
+  .field-row { grid-template-columns: 1fr; }
+}
+
+/* Full-page capture: let Settings grow instead of inner scroll */
+html, body, .app {
+  height: auto !important;
+  min-height: 100vh;
+}
+.main {
+  overflow: visible !important;
+}
+.page,
+.page-panel {
+  height: auto !important;
+  overflow: visible !important;
+}

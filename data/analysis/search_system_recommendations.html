@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Рекомендации по поисковой системе VacancyRadar</title>
+<style>
+:root {
+  --bg: #f4f0e8;
+  --ink: #1a1814;
+  --muted: #5a554a;
+  --card: #fffcf6;
+  --line: #d6cdb8;
+  --accent: #0d5c4d;
+  --accent2: #8a4b1f;
+  --warn: #9a3428;
+  --ok: #2a6b3c;
+  --soft: #e8f2ee;
+  --soft2: #f7eee4;
+  --chip: #e4ebe6;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: var(--ink);
+  font: 17px/1.55 "Segoe UI", "Trebuchet MS", sans-serif;
+  background:
+    radial-gradient(1000px 420px at 0% 0%, #d9ebe4 0%, transparent 55%),
+    radial-gradient(800px 380px at 100% 5%, #f0e0d0 0%, transparent 50%),
+    var(--bg);
+}
+.wrap { max-width: 920px; margin: 0 auto; padding: 36px 22px 80px; }
+.eyebrow {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+h1 {
+  margin: 10px 0 12px;
+  font-size: clamp(1.7rem, 3.2vw, 2.35rem);
+  line-height: 1.18;
+  max-width: 22ch;
+}
+.lede { color: var(--muted); max-width: 62ch; margin: 0 0 22px; }
+.meta {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 28px;
+}
+.meta span {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+nav.toc {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin-bottom: 28px;
+}
+nav.toc strong { display: block; margin-bottom: 8px; }
+nav.toc ol { margin: 0; padding-left: 1.25em; }
+nav.toc a { color: var(--accent); text-decoration: none; }
+nav.toc a:hover { text-decoration: underline; }
+section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 26px 24px 22px;
+  margin: 0 0 18px;
+}
+h2 {
+  margin: 0 0 12px;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+h3 { margin: 22px 0 8px; font-size: 1.08rem; color: var(--accent2); }
+h4 { margin: 16px 0 6px; font-size: 1rem; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 12px; padding-left: 1.25em; }
+li { margin: 5px 0; }
+.callout {
+  border-left: 4px solid var(--accent);
+  background: var(--soft);
+  padding: 12px 14px;
+  border-radius: 0 12px 12px 0;
+  margin: 14px 0;
+}
+.warn {
+  border-left: 4px solid var(--warn);
+  background: #fbf1ef;
+  padding: 12px 14px;
+  border-radius: 0 12px 12px 0;
+  margin: 14px 0;
+}
+.ok {
+  border-left: 4px solid var(--ok);
+  background: #eef6f0;
+  padding: 12px 14px;
+  border-radius: 0 12px 12px 0;
+  margin: 14px 0;
+}
+.idea {
+  border-left: 4px solid var(--accent2);
+  background: var(--soft2);
+  padding: 12px 14px;
+  border-radius: 0 12px 12px 0;
+  margin: 14px 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  margin: 10px 0 14px;
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--line);
+}
+th {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+code, .mono {
+  font-family: Consolas, "Courier New", monospace;
+  background: #efe8da;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+.cardish {
+  background: #faf7f0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.cardish b { display: block; margin-bottom: 4px; }
+.tag {
+  display: inline-block;
+  background: var(--chip);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 12px;
+  margin: 2px 2px;
+}
+.phase {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 10px 0;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.phase .n {
+  flex: 0 0 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.phase .body { flex: 1; }
+.phase .body strong { display: block; margin-bottom: 2px; }
+footer {
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.keep-drop {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 12px 0;
+}
+@media (max-width: 720px) { .keep-drop { grid-template-columns: 1fr; } }
+.keep-drop .k { background: #eef6f0; border: 1px solid #c5ddcb; border-radius: 12px; padding: 12px; }
+.keep-drop .d { background: #fbf1ef; border: 1px solid #e8c7c1; border-radius: 12px; padding: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">VacancyRadar · рекомендации · рядом с аналитикой Clear Check</div>
+  <h1>Как искать жёстко по роли, но не резать хорошие вакансии</h1>
+  <p class="lede">
+    Документ для спокойного чтения. Опирается на прогон дизайнера
+    (20:34–20:53, ~18.5 мин, deep 254 → Cursor 124 → в очередь 1)
+    и на текущую архитектуру: dual SERP, Reject, sphere_filter, Cursor SDK.
+    Цель: жизнеспособная картина — быстро отсекать мусор, оставлять
+    спорные, но правдоподобные FIT.
+  </p>
+  <div class="meta">
+    <span>дата: 2026-08-19</span>
+    <span>сфера-пример: Дизайнер</span>
+    <span>связанный разбор: design_clearcheck_2026-08-19</span>
+    <span>статус: proposal, не внедрялось</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <strong>Содержание</strong>
+  <ol>
+    <li><a href="#diag">Диагноз: что сломано в логике, а не в «ключевых словах»</a></li>
+    <li><a href="#principle">Принцип: три слоя уверенности</a></li>
+    <li><a href="#funnel">Целевая воронка поиска</a></li>
+    <li><a href="#serp">Как перестроить SERP (HH URL)</a></li>
+    <li><a href="#title">Title-гейт: allowlist + умный blacklist</a></li>
+    <li><a href="#prefs">Что делать с Preferences / References / Portfolio</a></li>
+    <li><a href="#cursor">Куда оставить Cursor, чтобы он не жег время</a></li>
+    <li><a href="#risks">Риски ложных отказов и как их страховать</a></li>
+    <li><a href="#roadmap">Практичный roadmap: что менять по порядку</a></li>
+    <li><a href="#examples">Примеры: пропустить / отсечь / отдать Cursor</a></li>
+    <li><a href="#open">Открытые вопросы на завтра</a></li>
+  </ol>
+</nav>
+
+<section id="diag">
+  <h2>1. Диагноз</h2>
+  <p>
+    Система сейчас умеет говорить «это явно плохо» только в узких случаях
+    (golang для дизайнера, «менеджер по продажам» как целая фраза).
+    Она почти не умеет говорить «это обязано быть ролью сферы».
+    Поэтому HH спокойно приносит врачей, колл-центры, ML-инженеров и менеджеров WB —
+    а Cursor через минуты честно ставит 0–8%.
+  </p>
+  <div class="warn">
+    <b>Главный вывод прогона:</b> Cursor в целом прав по низким скорам,
+    но работает как дорогой финальный судья на потоке, который
+    <i>не должен был до него доходить</i>. Из ~254 deep только ~124 дошли
+    до SDK; из них ≤35% — порядка 115. Хорошие дизайн-роли в топе были
+    (карточки, digital, арт-директор e-com), но утонули в шуме.
+  </div>
+  <h3>Четыре конкретные дыры</h3>
+  <ol>
+    <li><b>Dual SERP слишком щедрый.</b> Primary = sphere seeds (ок), secondary =
+      Desirable OR по name+description. Слова вроде «маркетплейс», «Ozon», «Figma»,
+      «Москва», «гибрид» — не роль. Они тянут логистов, менеджеров, маркетологов.</li>
+    <li><b>Sphere = thin blacklist, не allowlist.</b> «Врач-неонатолог» и
+      «Оператор call-центра» легальны для текущего designer-гейта.</li>
+    <li><b>Reject слишком литературный.</b> Есть «менеджер по продажам», нет
+      политики «менеджер без design-сигнала». «Руководитель команды разработки»
+      не матчит reject «разработчик» (другая словоформа).</li>
+    <li><b>Preferences смешивают ортогональные оси.</b> В одном Desirable лежат
+      роль (инфографика), инструмент (Photoshop), формат (гибрид), гео (Москва),
+      деньги (115000). Для SERP это яд; для Cursor — терпимо.</li>
+  </ol>
+  <div class="callout">
+    Хорошая новость: чинить нужно не «магией Cursor», а дешёвым prefilter
+    по заголовку + более честной семантикой seeds. Cursor оставить для
+    пограничных дизайн-ролей (3D / motion / UI-only / арт-директор), где
+    Python не должен рубить топором.
+  </div>
+</section>
+
+<section id="principle">
+  <h2>2. Принцип: три слоя уверенности</h2>
+  <p>
+    Чтобы не резать хорошее, каждый фильтр должен иметь явную уверенность.
+    Неясное — не kill, а «дорогому судье».
+  </p>
+  <div class="grid2">
+    <div class="cardish">
+      <b>Слой A — Hard kill (бесплатно)</b>
+      Очевидный мусор по title: врач, курьер, бухгалтер, call-центр,
+      «менеджер по продажам», golang/devops без design-слова.
+      Ошибка здесь дорогая → паттерны только высокоточные.
+    </div>
+    <div class="cardish">
+      <b>Слой B — Soft require (почти бесплатно)</b>
+      Для известной сферы: в title (или коротком SERP snippet) должен быть
+      <i>ролевой сигнал сферы</i>. Нет сигнала → не deep/Cursor.
+      Исключения — короткий whitelist редких формулировок.
+    </div>
+    <div class="cardish">
+      <b>Слой C — Cursor judge (дорого)</b>
+      Только карточки, прошедшие A+B. Здесь решаем FIT: карточки WB vs
+      чистый UI/UX, грейд, деньги, гибрид, портфолио.
+    </div>
+    <div class="cardish">
+      <b>Слой D — Preferences как оси, не каша</b>
+      Role keywords ≠ tools ≠ work format ≠ geo ≠ salary.
+      В SERP участвует только role (+ осторожно tools).
+      Format/geo/salary — в Cursor / soft score, не в HH text=.
+    </div>
+  </div>
+  <div class="ok">
+    <b>Золотое правило:</b> лучше пропустить спорный «Дизайнер презентаций»
+    в Cursor, чем убить его на title-гейте. Лучше убить «Логист Wildberries»
+    на title, чем отдавать в SDK.
+  </div>
+</section>
+
+<section id="funnel">
+  <h2>3. Целевая воронка</h2>
+
+  <div class="phase">
+    <div class="n">1</div>
+    <div class="body">
+      <strong>Seed A — Role SERP (обязательный)</strong>
+      URL из Activity sphere: <span class="mono">дизайнер OR designer OR графический дизайнер OR иллюстратор</span>
+      + при желании узкие role-синонимы профиля («дизайнер карточек», «инфографика» как <i>роль</i>).
+      <code>search_field=name</code> предпочтителен; description — только если мало выдачи.
+    </div>
+  </div>
+  <div class="phase">
+    <div class="n">2</div>
+    <div class="body">
+      <strong>Seed B — Optional boost (не обязан)</strong>
+      Отдельный OR только из <i>role-desirable</i> (не Москва/гибрид/зарплата).
+      Можно выключать тогглом «Desirable SERP». По умолчанию для шумных сфер — off
+      или name-only.
+    </div>
+  </div>
+  <div class="phase">
+    <div class="n">3</div>
+    <div class="body">
+      <strong>Primary card gate (до chrome deep)</strong>
+      Reject keywords (улучшенные) → sphere hard-kill → <b>sphere allowlist title</b>.
+      Здесь должна умирать основная масса мусора.
+    </div>
+  </div>
+  <div class="phase">
+    <div class="n">4</div>
+    <div class="body">
+      <strong>Deep fetch + secondary gate</strong>
+      Полный текст только для прошедших title. Secondary reject/sphere на тексте —
+      ловит «в тексте вакансии сплошные продажи», если title был маскирующий.
+    </div>
+  </div>
+  <div class="phase">
+    <div class="n">5</div>
+    <div class="body">
+      <strong>Cursor SDK</strong>
+      FIT к резюме/портфолио + prefs axes + references. Не «является ли это работой вообще».
+    </div>
+  </div>
+
+  <div class="idea">
+    Ожидаемый эффект на похожем Clear Check: deep не 254, а условно 40–80;
+    Cursor не 124, а 30–60; доля ≤10% резко падает; время с ~18 мин к нескольким.
+    Точные цифры — после A/B на том же search_period.
+  </div>
+</section>
+
+<section id="serp">
+  <h2>4. Перестройка SERP</h2>
+  <h3>4.1 Primary URL = только роль сферы</h3>
+  <p>
+    То, что уже сделано (sphere → hh_search_url), — правильное направление.
+    Усилить:
+  </p>
+  <ul>
+    <li>Для designer seeds добавить аккуратные синонимы роли:
+      <code>дизайнер карточек</code>, <code>инфографика</code> (как role),
+      <code>graphic designer</code>, <code>коммуникационный дизайнер</code> —
+      но <b>не</b> Ozon/WB как отдельные OR без слова «дизайн».</li>
+    <li>Параметр: <code>search_field=name</code> для primary. Description включать
+      только если за N страниц мало карточек (адаптивный fallback).</li>
+    <li>Не смешивать schedule=remote как единственный догмат для дизайна:
+      у кандидата в prefs был гибрид. Лучше вынести format в отдельный
+      конфиг-флаг: remote / remote+hybrid / any, и крутить HH schedule/фильтры осознанно.</li>
+  </ul>
+
+  <h3>4.2 Desirable SERP — сделать безопасным или выключить</h3>
+  <table>
+    <thead>
+      <tr><th>Тип токена</th><th>В Desirable UI</th><th>В HH text=</th><th>Почему</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Роль: «дизайнер карточек», «инфографика»</td>
+        <td>да</td><td>да (осторожно)</td>
+        <td>усиливает role seed</td>
+      </tr>
+      <tr>
+        <td>Инструмент: Figma, Photoshop</td>
+        <td>да</td><td>лучше нет / только name</td>
+        <td>Figma есть у менеджеров продукта и маркетологов</td>
+      </tr>
+      <tr>
+        <td>Площадка: WB, Ozon, маркетплейс</td>
+        <td>нейтраль/контекст</td><td>нет</td>
+        <td>тянет логистов и менеджеров МП</td>
+      </tr>
+      <tr>
+        <td>Формат: удалёнка, гибрид</td>
+        <td>отдельная ось</td><td>нет (есть schedule)</td>
+        <td>не роль</td>
+      </tr>
+      <tr>
+        <td>Гео / ЗП: Москва, 115000</td>
+        <td>отдельная ось</td><td>нет</td>
+        <td>максимальный шум в description</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    Практично в коде: помечать bucket-теги типами
+    (<code>role</code> / <code>tool</code> / <code>context</code> / <code>format</code> / <code>comp</code>)
+    или завести рядом с Desirable поле «SERP keywords» (явный список для HH),
+    а Desirable оставить для Cursor boost.
+  </div>
+
+  <h3>4.3 Альтернатива dual-seed</h3>
+  <ul>
+    <li><b>Вариант «один чистый seed»</b> — только sphere role URL. Проще, меньше шума.
+      Риск: меньше охват редких формулировок.</li>
+    <li><b>Вариант «два seed, оба role»</b> — sphere URL + URL из role-desirable only.</li>
+    <li><b>Вариант «sphere + negative HH»</b> — если HH API/UI позволит исключать
+      слова в поиске (не всегда стабильно) — не строить на этом основу.</li>
+  </ul>
+</section>
+
+<section id="title">
+  <h2>5. Title-гейт: allowlist + умный blacklist</h2>
+
+  <h3>5.1 Allowlist (слой B) — сердце ускорения</h3>
+  <p>
+    Если Activity sphere нормализуется в <code>designer</code>, карточка идёт в deep
+    только если title/snippet содержит хотя бы один сигнал:
+  </p>
+  <p>
+    <span class="tag">дизайнер</span>
+    <span class="tag">designer</span>
+    <span class="tag">illustrator</span>
+    <span class="tag">иллюстратор</span>
+    <span class="tag">инфографик</span>
+    <span class="tag">арт-директор</span>
+    <span class="tag">art director</span>
+    <span class="tag">графическ</span>
+    <span class="tag">коммуникационный дизайнер</span>
+    <span class="tag">motion design</span>
+    <span class="tag">ui/ux</span>
+    <span class="tag">product designer</span>
+    <span class="tag">figma</span> <i>(слабый — лучше как secondary signal)</i>
+  </p>
+  <div class="warn">
+    Figma / Photoshop в title без «дизайн» — слабый сигнал. Можно считать
+    allow только в паре с role-словом, либо пускать в «серую зону» с лимитом.
+  </div>
+
+  <h3>5.2 Исключения allowlist (чтобы не резать хорошее)</h3>
+  <ul>
+    <li><b>Creative / Brand / Visual</b> без слова «дизайн», но с явным creative-role:
+      «Brand Designer», «Visual Designer», «Digital Designer» — уже покрыто designer.</li>
+    <li><b>Арт-директор / Art Director</b> — иногда без «дизайн» в title; держать в allow.</li>
+    <li><b>Редкие RU-формулировки:</b> «Художник-оформитель», «Дизайнер-верстальщик»
+      (верстальщик спорный — лучше Cursor, не hard kill).</li>
+    <li><b>Англ. аббревиатуры:</b> «CG Artist», «3D Artist» — для marketplace-графики
+      могут быть undesirable, но не hard kill без prefs.</li>
+  </ul>
+
+  <h3>5.3 Blacklist (слой A) — расширить, но token-aware</h3>
+  <p>Уже есть урок: <code>водитель ⊂ руководитель</code>. Только границы слова.</p>
+  <div class="keep-drop">
+    <div class="d">
+      <b>Hard drop для designer (без design-сигнала)</b>
+      <ul>
+        <li>менеджер / manager / руководитель продаж</li>
+        <li>маркетолог / SMM / SEO-специалист</li>
+        <li>рекрутер / HR / бухгалтер / юрист</li>
+        <li>оператор call / колл-центр / курьер / водитель</li>
+        <li>врач / медсестра / преподаватель / учитель</li>
+        <li>логист / байер / закупк</li>
+        <li>разработчик / developer / golang / devops / QA engineer / ML-инженер</li>
+        <li>менеджер маркетплейс / менеджер WB/Ozon (без «дизайн»)</li>
+      </ul>
+    </div>
+    <div class="k">
+      <b>Не hard-drop (отдать Cursor)</b>
+      <ul>
+        <li>«Дизайнер маркетплейсов»</li>
+        <li>«Графический дизайнер / менеджер макетов» (есть дизайн)</li>
+        <li>«Senior-дизайнер / Арт-директор»</li>
+        <li>«Дизайнер карточек товаров»</li>
+        <li>«Коммуникационный дизайнер»</li>
+        <li>«Digital Brand Designer»</li>
+        <li>UI/UX при undesirable — soft downrank, не kill (если вдруг нужен охват)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>5.4 Правило «роль + исключение»</h3>
+  <p class="mono" style="display:block;padding:10px;background:#efe8da;border-radius:8px;">
+    IF title matches MANAGERISH AND NOT title matches DESIGN_SIGNAL → hard reject<br/>
+    IF sphere known AND NOT title matches SPHERE_ALLOW → hard reject<br/>
+    ELSE pass to deep / Cursor
+  </p>
+  <p>
+    Именно связка «менеджер AND NOT дизайн» сохраняет
+    «Менеджер дизайн-команды» / редкие гибриды, если в title есть сигнал.
+    В прогоне таких почти не было; зато «Менеджер маркетплейсов» отсечётся честно.
+  </p>
+</section>
+
+<section id="prefs">
+  <h2>6. Preferences, References, Portfolio</h2>
+
+  <h3>6.1 Разделить оси (концепт UI)</h3>
+  <table>
+    <thead><tr><th>Ось</th><th>Где живёт</th><th>Влияет на</th></tr></thead>
+    <tbody>
+      <tr><td>Activity sphere</td><td>User Profile</td><td>SERP primary + allowlist + sphere prompt</td></tr>
+      <tr><td>Role desirable</td><td>Preferences (или SERP keywords)</td><td>опциональный 2-й seed + Cursor boost</td></tr>
+      <tr><td>Tools</td><td>Preferences</td><td>Cursor only (или слабый boost)</td></tr>
+      <tr><td>Reject roles</td><td>Reject</td><td>hard gate</td></tr>
+      <tr><td>Format / geo / pay</td><td>отдельные поля или Neutral/Undesirable</td><td>Cursor soft; HH schedule отдельно</td></tr>
+      <tr><td>References</td><td>Vacancy References</td><td>Cursor calibration only</td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.2 Что поправить в текущем дизайнерском конфиге (без кода)</h3>
+  <ul>
+    <li><b>Убрать из Desirable для SERP:</b> Москва, гибрид, 115000, на руки, голый маркетплейс,
+      Wildberries/Ozon как одиночные токены.</li>
+    <li><b>Оставить в Role desirable:</b> дизайнер карточек, инфографика, графический дизайнер,
+      Rich content, фирменный стиль, карточка товара.</li>
+    <li><b>Tools → Cursor:</b> Figma, Photoshop, Illustrator, CorelDRAW.</li>
+    <li><b>Reject дописать короткими ролями:</b> менеджер (с оговоркой через код),
+      маркетолог, SMM, рекрутер, оператор, логист, разработчик, backend, QA, ML —
+      плюс полагаться на allowlist, чтобы не ловить ложные срабатывания на длинных title.</li>
+    <li><b>Undesirable:</b> UI/UX-only, 3D-only, motion-only — правильно как soft,
+      не переносить в Reject, пока не уверены.</li>
+  </ul>
+
+  <h3>6.3 References</h3>
+  <p>
+    Одна архивная «дизайнер маркетплейсов» — слабо для калибровки.
+    Нужно 3–5 <b>живых</b> FIT: карточки WB/Ozon, инфографика, статическая графика,
+    возможно e-com арт-директор — с разными зарплатами/форматами.
+    References не должны тащить поиск; только учить Cursor «как выглядит да».
+  </p>
+
+  <h3>6.4 Portfolio</h3>
+  <p>
+    Ссылка на Яндекс.Диск ок, но Cursor выигрывает от 2–4 якорных фраз в профиле
+    (notes / sphere comment): «карточки товаров WB/Ozon», «инфографика», «Figma+PS+AI»,
+    «не чистый UI/UX приложений». Это дешевле, чем надеяться, что SDK прочитает диск.
+  </p>
+</section>
+
+<section id="cursor">
+  <h2>7. Роль Cursor после ужесточения</h2>
+  <p>Cursor должен отвечать на вопросы уровня:</p>
+  <ul>
+    <li>Это дизайн карточек / коммуникации или соседний digital?</li>
+    <li>Грейд и вилка ЗП стыкуются?</li>
+    <li>Гибрид/офис терпим при prefs?</li>
+    <li>Слишком UI/UX / 3D / motion относительно резюме?</li>
+  </ul>
+  <p>Cursor не должен отвечать на:</p>
+  <ul>
+    <li>«Это врач?»</li>
+    <li>«Это менеджер продаж?»</li>
+    <li>«Это Python Tech Lead?»</li>
+  </ul>
+  <div class="ok">
+    После allowlist доля Cursor-вызовов на мусоре должна упасть на порядок.
+    Тогда можно спокойно держать 3–5 воркеров и не упираться в 18 минут Clear Check.
+  </div>
+  <h3>Дополнительные дешёвые pre-Cursor эвристики</h3>
+  <ul>
+    <li>Если title allowlist ок, но snippet SERP содержит «входящие заявки», «холодные звонки» —
+      soft penalty или hard reject.</li>
+    <li>Лимит deep_score_max: пока префильтр сырой — 40–60; после allowlist можно вернуть 80–100.</li>
+    <li>Не слать в Cursor дубликаты title+company в одном прогоне.</li>
+  </ul>
+</section>
+
+<section id="risks">
+  <h2>8. Риски ложных отказов и страховки</h2>
+  <table>
+    <thead><tr><th>Риск</th><th>Пример</th><th>Страховка</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Редкий title без «дизайн»</td>
+        <td>«Художник компьютерной графики»</td>
+        <td>Расширять allow-синонимы; лог «allow-miss» для ручного разбора</td>
+      </tr>
+      <tr>
+        <td>Англ. роль</td>
+        <td>«Visual Designer», «CG Generalist»</td>
+        <td>EN-aliases в allow; CG — серая зона → Cursor</td>
+      </tr>
+      <tr>
+        <td>Слишком жёсткий Reject «менеджер»</td>
+        <td>«Менеджер дизайн-системы»</td>
+        <td>Только «managerish AND NOT design-signal»</td>
+      </tr>
+      <tr>
+        <td>Name-only SERP режет охват</td>
+        <td>роль только в description</td>
+        <td>Адаптивный fallback: если &lt; N карточек — включить description</td>
+      </tr>
+      <tr>
+        <td>Гибрид нужен, remote-only в URL</td>
+        <td>хорошие МСК гибрид</td>
+        <td>Отдельный флаг format в конфиге поиска</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="idea">
+    <b>Режим «shadow filter»:</b> первую неделю allowlist только логирует
+    «оставили бы / убрали бы», но не режет. Сверка с фактом Cursor ≤20%.
+    Если precision высокая — включать kill.
+  </div>
+</section>
+
+<section id="roadmap">
+  <h2>9. Roadmap внедрения (разумный порядок)</h2>
+  <ol>
+    <li><b>Сегодня/завтра без кода:</b> почистить Desirable (убрать гео/ЗП/голые МП-токены);
+      дописать Reject короткими ролями; добавить 3–5 references; якоря в профиле.</li>
+    <li><b>Быстрый код-win:</b> allowlist title для известных sphere до deep;
+      правило managerish AND NOT design; расширить designer blacklist (врач, оператор, логист…);
+      Desirable SERP → name-only или отключаемый.</li>
+    <li><b>SERP hygiene:</b> разделение role-desirable vs tools; sync_hh только из role;
+      опционально выключить dual-seed.</li>
+    <li><b>Наблюдаемость:</b> в лог писать reason code:
+      <code>serp</code>, <code>reject</code>, <code>sphere-allow-miss</code>,
+      <code>sphere-blacklist</code>, <code>cursor</code>. Иначе снова угадываем.</li>
+    <li><b>Тонкая настройка:</b> format flag, adaptive description, shadow mode,
+      калибровка порога queue под дизайн (возможно 55–65, не 70 — смотреть по топу).</li>
+  </ol>
+  <div class="callout">
+    Порог 70 в прогоне оставил 1 вакансию при живых 54–64% дизайн-ролях.
+    Возможно, для дизайна временно threshold 55–60 <i>после</i> очистки потока —
+    иначе «хорошие» не доживают до очереди. Но снижать порог <b>до</b> очистки потока
+    нельзя: получите менеджеров в очереди.
+  </div>
+</section>
+
+<section id="examples">
+  <h2>10. Примеры решений</h2>
+  <table>
+    <thead><tr><th>Title</th><th>Сейчас</th><th>Целевое</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Дизайнер карточек товаров</td>
+        <td>Cursor ~58</td>
+        <td>allow → Cursor (оставить)</td>
+      </tr>
+      <tr>
+        <td>Senior-дизайнер / Арт-директор e-commerce</td>
+        <td>Cursor ~58</td>
+        <td>allow → Cursor</td>
+      </tr>
+      <tr>
+        <td>Менеджер маркетплейсов / маркетолог на ОЗОН</td>
+        <td>доходит, ~18</td>
+        <td>hard drop (managerish ∩ ¬design)</td>
+      </tr>
+      <tr>
+        <td>Логист (Wildberries/Ozon/…)</td>
+        <td>доходит, ~5</td>
+        <td>hard drop (blacklist / ¬allow)</td>
+      </tr>
+      <tr>
+        <td>Врач-неонатолог</td>
+        <td>доходит, 0</td>
+        <td>hard drop (¬allow)</td>
+      </tr>
+      <tr>
+        <td>Tech Lead / Руководитель команды разработки Python</td>
+        <td>доходит, 0</td>
+        <td>hard drop (dev blacklist / ¬allow)</td>
+      </tr>
+      <tr>
+        <td>3D Artist / Environment</td>
+        <td>низкий score</td>
+        <td>allow (artist) → Cursor; undesirable 3D может понизить</td>
+      </tr>
+      <tr>
+        <td>UI/UX Designer</td>
+        <td>может пройти</td>
+        <td>allow → Cursor; undesirable UI/UX-only</td>
+      </tr>
+      <tr>
+        <td>Дизайнер (медиа, СМИ) — 74%</td>
+        <td>единственный ≥70</td>
+        <td>allow → Cursor → очередь</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="open">
+  <h2>11. Открытые вопросы на завтра</h2>
+  <ol>
+    <li>Насколько широкая сфера «Дизайнер»: только карточки/инфографика или ещё бренд/коммуникации/арт-дирекшн?</li>
+    <li>Гибрид/Москва — must, nice, или вообще не фильтр поиска?</li>
+    <li>UI/UX и 3D — жёсткий reject или только undesirable?</li>
+    <li>Нужен ли второй seed Desirable вообще, если sphere seeds уже role-accurate?</li>
+    <li>Готовы ли включить allowlist сразу в kill-режиме или сначала shadow-log неделю?</li>
+    <li>Порог очереди 70 vs 55–60 после очистки потока.</li>
+  </ol>
+  <div class="ok">
+    Если коротко сформулировать продуктную цель одной фразой:
+    <b>«HH ищет роль, Python подтверждает роль по заголовку, Cursor оценивает совпадение с человеком.»</b>
+    Сейчас HH ищет слова, Python слабо возражает, Cursor оценивает всё подряд.
+  </div>
+</section>
+
+<footer>
+  Файл лежит рядом с аналитикой Clear Check:
+  <code>VacancyRadar/data/analysis/</code>.
+  Связанные: <code>design_clearcheck_2026-08-19.html</code>,
+  <code>LATEST_DESIGN_LOG.json</code>.
+  Статус: рекомендательный документ, код не менялся.
+  Сгенерировано 2026-08-19.
+</footer>
+
+</div>
+</body>
+</html>

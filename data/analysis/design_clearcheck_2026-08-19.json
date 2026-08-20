@@ -1,0 +1,1346 @@
+{
+  "meta": {
+    "label": "design-clear-check-2026-08-19-2034",
+    "aliases": [
+      "логи по дизайну",
+      "давай логи по дизайну",
+      "design logs",
+      "clear check дизайн",
+      "настя дизайн лог"
+    ],
+    "session_start": "20:34:52 Clear Check: SERP за последние 7 дн.…",
+    "session_end": "20:53:22 Clear Check OK. Новых: 1, проверено: 354, SERP стр.: 20, deep: 254, 1110.3с",
+    "log_slice": [
+      5362,
+      5867
+    ],
+    "created_at": "2026-08-19T18:04:35.925504+00:00",
+    "hh_search_text": "дизайнер OR designer OR графический дизайнер OR иллюстратор",
+    "activity_sphere": "Дизайнер",
+    "portfolio_url": "https://disk.yandex.ru/d/RsIjS0A_ANeRdg",
+    "summary": {
+      "added": "1",
+      "checked": "354",
+      "serp_pages": "20",
+      "deep": "254",
+      "elapsed_sec": "1110.3",
+      "load_line": "20:36:08 К загрузке текста: 254 карточек (пропущено 100)",
+      "cursor_scored": 124,
+      "secondary_drop_before_cursor_est": 130,
+      "serp_sphere_reject": 19,
+      "reject_log_lines": 211
+    }
+  },
+  "funnel": {
+    "note": "SERP dual-seed → primary gates on SERP card → deep fetch → secondary gates → Cursor",
+    "to_deep": 254,
+    "cursor_scored": 124,
+    "queue_added": 1,
+    "sphere_reject_serp_logged": 19,
+    "reject_lines_logged": 211
+  },
+  "cursor_batch": {
+    "size": 124,
+    "histogram": {
+      "0-9": 89,
+      "10-19": 9,
+      "20-29": 11,
+      "30-39": 6,
+      "40-49": 1,
+      "50-59": 6,
+      "60-69": 1,
+      "70-79": 1
+    },
+    "below_20": 98,
+    "below_or_eq_35": 115,
+    "ge_70": 1,
+    "managerish": 45,
+    "designish": 22,
+    "nondesign": 102,
+    "low_tag_stats": {
+      "designish": 13,
+      "other": 60,
+      "managerish": 43,
+      "salesish": 2,
+      "devish": 1
+    },
+    "mgr_still_pass_title_gates": 45,
+    "nondesign_still_pass_title_gates": 102,
+    "low_title_killable_now": 0,
+    "manager_titles": [
+      "Team Lead Merch Design / Руководитель направления дизайна мерча",
+      "Менеджер по внешней рекламе",
+      "Senior-дизайнер / Арт-директор e-commerce",
+      "SEO-специалист",
+      "Проджект-менеджер креативной команды",
+      "Менеджер маркетплейсов / маркетолог на ОЗОН",
+      "Digital-маркетолог",
+      "Product Manager/ менеджер продукта",
+      "Team lead of Digital Marketing (Руководитель цифрового маркетинга в нише Igaming)",
+      "Менеджер проекта по закупкам из Китая (детские подарки)",
+      "Менеджер по закупкам (байер) Одежда/обувь",
+      "Менеджер по продвижению (консталтинг психологических услуг для бизнеса)",
+      "Менеджер по продвижению ювелирных изделий",
+      "Senior Digital Marketing Manager / Head of Marketing (USA Market)",
+      "Senior Digital Marketing Manager/Head of Marketing (USA Market)/Старший менеджер",
+      "Senior Digital Marketing Manager/Head of Marketing (USA Market)/Старший менеджер",
+      "Senior Digital Marketing Manager/Head of Marketing (USA Market)/Старший менеджер",
+      "Продуктовый маркетолог",
+      "Менеджер проектов по музейной застройке",
+      "Traffic manager / Таргетолог (Intern)",
+      "Директолог / контекстолог / performance-маркетолог",
+      "Ведущий маркетолог / Маркетолог-стратег",
+      "Лид-менеджер",
+      "Контент-маркетолог",
+      "Старший менеджер по работе с маркетплейсами (Ozon)",
+      "YouTube-контент-менеджер / видеомонтажёр",
+      "Интернет-маркетолог",
+      "Руководитель направления по присоединению объектов генерации",
+      "Менеджер по продаже недвижимости",
+      "Менеджер по развитию сервиса студии танцев и фитнеса 128bpm",
+      "Менеджер первых записей студии танцев и фитнеса 128bpm",
+      "Перформанс маркетолог",
+      "Менеджер по B2B продажам (Телеком, входящие заявки)",
+      "Финансовый менеджер/контролер (IT-стартап, PropTech)",
+      "Руководитель проектов цифровых коммуникаций (госсектор) / Senior Digital Project Manager",
+      "Руководитель отдела Digital-маркетинга | B2B-услуги",
+      "Менеджер по подбору поставщиков (мебель/сопутствующие товары)",
+      "Старший менеджер по закупкам (одежда)",
+      "Ассистент менеджера по работе с клиентами",
+      "Tech Lead / Руководитель команды разработки Python",
+      "Руководитель проектов по монтажу стеллажного оборудования",
+      "Бридер-менеджер/Менеджер по работе с питомниками и заводчиками",
+      "Руководитель проектов",
+      "Менеджер в финансовый маркетплейс (без опыта)",
+      "Менеджер по закупкам (ВЭД, Китай)"
+    ],
+    "nondesign_titles_sample": [
+      "Преподаватель по созданию игр в Roblox Studio",
+      "Marketing & Content Assistant (Entry level)",
+      "Преподаватель по созданию игр в Roblox Studio",
+      "Менеджер по внешней рекламе",
+      "SEO-специалист",
+      "Менеджер маркетплейсов / маркетолог на ОЗОН",
+      "Digital-маркетолог",
+      "Ручной тестировщик в команду разработки",
+      "Senior Application Security Engineer",
+      "Тьютор на онлайн-курсы в IT направление (Minecraft/Искусственный интеллект)",
+      "Brand Director",
+      "Чертежник CAD (2D)",
+      "Product Manager/ менеджер продукта",
+      "Team lead of Digital Marketing (Руководитель цифрового маркетинга в нише Igaming)",
+      "Научный сотрудник на музейные и выставочные проекты",
+      "Архитектор (проектная работа)",
+      "ML-инженер",
+      "Менеджер проекта по закупкам из Китая (детские подарки)",
+      "Менеджер по закупкам (байер) Одежда/обувь",
+      "Менеджер по продвижению (консталтинг психологических услуг для бизнеса)",
+      "Учитель на курс по перечневым олимпиадам по математике",
+      "Менеджер по продвижению ювелирных изделий",
+      "Системный аналитик (Финтех)",
+      "Senior Digital Marketing Manager / Head of Marketing (USA Market)",
+      "Senior Digital Marketing Manager/Head of Marketing (USA Market)/Старший менеджер",
+      "Senior Digital Marketing Manager/Head of Marketing (USA Market)/Старший менеджер",
+      "Редактор контента",
+      "Senior Digital Marketing Manager/Head of Marketing (USA Market)/Старший менеджер",
+      "Монтажёр YouTube каналов со знанием английского языка",
+      "Продуктовый маркетолог",
+      "Менеджер проектов по музейной застройке",
+      "Data Analyst",
+      "Media buyer Facebook (PWA)",
+      "Senior Business Analyst (DaVinci)",
+      "Lead AI Engineer, Databricks",
+      "Traffic manager / Таргетолог (Intern)",
+      "Копирайтер | Редактор в Crypto/Web 3",
+      "Директолог / контекстолог / performance-маркетолог",
+      "Видеомонтажёр вертикального контента",
+      "Head of product",
+      "Ведущий маркетолог / Маркетолог-стратег",
+      "Лид-менеджер",
+      "Младший специалист по тестированию (Junior QA)",
+      "UX проектировщик",
+      "Контент-маркетолог",
+      "Team Lead Media Buyer (Google ads / Fb)",
+      "Консультант-аналитик 1С",
+      "Старший менеджер по работе с маркетплейсами (Ozon)",
+      "Таргетолог в pro.finansy",
+      "Логист (Wildberries/Ozon/Lamoda/Детский мир)",
+      "Помощник по созданию ИИ видео",
+      "YouTube-контент-менеджер / видеомонтажёр",
+      "Интернет-маркетолог",
+      "Оператор по работе с клиентами",
+      "Стажер (без оплаты первые 3 месяца)",
+      "Оператор колл-центра",
+      "Ведущий инженер-конструктор по фасадам (СПК и НВФ)",
+      "Руководитель направления по присоединению объектов генерации",
+      "Менеджер по продаже недвижимости",
+      "Менеджер по развитию сервиса студии танцев и фитнеса 128bpm",
+      "Менеджер первых записей студии танцев и фитнеса 128bpm",
+      "Перформанс маркетолог",
+      "Специалист по тендерам в строительную компанию",
+      "Менеджер по B2B продажам (Телеком, входящие заявки)",
+      "Академический ассистент по научным публикациям",
+      "Финансово-договорной администратор проектов",
+      "Финансовый менеджер/контролер (IT-стартап, PropTech)",
+      "Руководитель проектов цифровых коммуникаций (госсектор) / Senior Digital Project Manager",
+      "Руководитель отдела Digital-маркетинга | B2B-услуги",
+      "Менеджер по подбору поставщиков (мебель/сопутствующие товары)",
+      "Амбассадор по банкротству",
+      "Юрист-Адвокат",
+      "Старший менеджер по закупкам (одежда)",
+      "Монтажёр рекламных видео (арбитраж трафика)",
+      "Специалист поддержки пользователей",
+      "Ассистент менеджера по работе с клиентами",
+      "Специалист по нормированию",
+      "Специалист по товарному учету",
+      "Tech Lead / Руководитель команды разработки Python",
+      "Врач-неонатолог"
+    ],
+    "designish_titles": [
+      "Team Lead Environment 3D Artist",
+      "Team Lead Merch Design / Руководитель направления дизайна мерча",
+      "Team Lead Environment 3D Artist",
+      "Senior-дизайнер / Арт-директор e-commerce",
+      "Проджект-менеджер креативной команды",
+      "3D CAD Designer / специалист по параметрическому моделированию",
+      "3D-моделлер персонажей (GameDev)",
+      "Дизайнер карточек товаров",
+      "Video-editor",
+      "Digital Brand Designer",
+      "Level-дизайнер (жанр Ферма + Экспедиции)",
+      "Моушн-дизайнер / Motion Designer (iGaming)",
+      "Нарративный гейм-дизайнер",
+      "Коммуникационный дизайнер",
+      "Motion Designer / Моушен-дизайнер (Видеодизайнер)",
+      "Motion Designer / Моушен-дизайнер (Видеодизайнер)",
+      "Графический дизайнер в образовательный холдинг Study Link",
+      "Дизайнер статической графики",
+      "Motion-дизайнер для создания анимационных роликов",
+      "Дизайнер (медиа, СМИ)",
+      "Digital дизайнер",
+      "PM в студию информационного дизайна"
+    ],
+    "low_score_sample": [
+      {
+        "title": "Tech Lead / Руководитель команды разработки Python",
+        "score": 0,
+        "reasons": [],
+        "tags": [
+          "managerish",
+          "devish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Врач-неонатолог",
+        "score": 0,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Медицинский специалист в контакт-центр",
+        "score": 0,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Оператор колл-центра",
+        "score": 0,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Оператор сервиса доставки",
+        "score": 0,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Юрист-Адвокат",
+        "score": 0,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Senior Application Security Engineer",
+        "score": 2,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Преподаватель по химии",
+        "score": 2,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Lead AI Engineer, Databricks",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "ML-инженер",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Амбассадор по банкротству",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Бустер по обучению и прокачке персонажей",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Ведущий инженер-конструктор по фасадам (СПК и НВФ)",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Ведущий/Главный специалист Открытия счетов",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Лид-менеджер",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер в финансовый маркетплейс (без опыта)",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер по B2B продажам (Телеком, входящие заявки)",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "managerish",
+          "salesish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер по продаже недвижимости",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "managerish",
+          "salesish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Младший специалист по тестированию (Junior QA)",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Оператор call-центра",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Преподаватель по русскому языку",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Руководитель проектов по монтажу стеллажного оборудования",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Специалист по таможенному оформлению",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Учитель на курс по перечневым олимпиадам по математике",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Финансовый менеджер/контролер (IT-стартап, PropTech)",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Эксперт по валютному контролю",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Эксперт по валютному контролю",
+        "score": 3,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Ассистент менеджера по работе с клиентами",
+        "score": 4,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Head of product",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Senior Business Analyst (DaVinci)",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Senior Digital Marketing Manager / Head of Marketing (USA Market)",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Академический ассистент по научным публикациям",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Аналитик данных (Data Analyst)",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Бридер-менеджер/Менеджер по работе с питомниками и заводчиками",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Инженер-проектировщик автоматического пожаротушения (АПТ)",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Логист (Wildberries/Ozon/Lamoda/Детский мир)",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер первых записей студии танцев и фитнеса 128bpm",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер по закупкам (байер) Одежда/обувь",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер по продвижению ювелирных изделий",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер по развитию сервиса студии танцев и фитнеса 128bpm",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Оператор по работе с клиентами",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Руководитель направления по присоединению объектов генерации",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Руководитель проектов",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Специалист по тендерам в строительную компанию",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Специалист по товарному учету",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Тьютор на онлайн-курсы в IT направление (Minecraft/Искусственный интеллект)",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Финансово-договорной администратор проектов",
+        "score": 5,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Team Lead Media Buyer (Google ads / Fb)",
+        "score": 6,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "3D CAD Designer / специалист по параметрическому моделированию",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "designish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "3D-моделлер персонажей (GameDev)",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "designish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Data Analyst",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Digital-маркетолог",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Media buyer Facebook (PWA)",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Product Manager/ менеджер продукта",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "SEO-специалист",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Senior Digital Marketing Manager/Head of Marketing (USA Market)/Старший менеджер",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Senior Digital Marketing Manager/Head of Marketing (USA Market)/Старший менеджер",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Senior Digital Marketing Manager/Head of Marketing (USA Market)/Старший менеджер",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Team Lead Environment 3D Artist",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "designish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Team Lead Environment 3D Artist",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "designish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Team lead of Digital Marketing (Руководитель цифрового маркетинга в нише Igaming)",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Traffic manager / Таргетолог (Intern)",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Аналитик по внедрению 1С:ТОИР/Консультант по автоматизации производства",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Архитектор (проектная работа)",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Ведущий маркетолог / Маркетолог-стратег",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Директолог / контекстолог / performance-маркетолог",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Консультант-аналитик 1С",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Копирайтер | Редактор в Crypto/Web 3",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер по внешней рекламе",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер по закупкам (ВЭД, Китай)",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер по подбору поставщиков (мебель/сопутствующие товары)",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер проекта по закупкам из Китая (детские подарки)",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Менеджер проектов по музейной застройке",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Монтажёр YouTube каналов со знанием английского языка",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Научный сотрудник на музейные и выставочные проекты",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Перформанс маркетолог",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Преподаватель по созданию игр в Roblox Studio",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Преподаватель по созданию игр в Roblox Studio",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "other"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Продуктовый маркетолог",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      },
+      {
+        "title": "Руководитель отдела Digital-маркетинга | B2B-услуги",
+        "score": 8,
+        "reasons": [],
+        "tags": [
+          "managerish"
+        ],
+        "title_kw_reject": false,
+        "title_sphere_reject": false,
+        "kw_reasons": [],
+        "sphere_reasons": []
+      }
+    ],
+    "top_scores": [
+      {
+        "score": 74,
+        "title": "Дизайнер (медиа, СМИ)",
+        "reasons": []
+      },
+      {
+        "score": 64,
+        "title": "Дизайнер статической графики",
+        "reasons": []
+      },
+      {
+        "score": 58,
+        "title": "Senior-дизайнер / Арт-директор e-commerce",
+        "reasons": []
+      },
+      {
+        "score": 58,
+        "title": "Дизайнер карточек товаров",
+        "reasons": []
+      },
+      {
+        "score": 58,
+        "title": "Коммуникационный дизайнер",
+        "reasons": []
+      },
+      {
+        "score": 56,
+        "title": "Digital дизайнер",
+        "reasons": []
+      },
+      {
+        "score": 54,
+        "title": "Digital Brand Designer",
+        "reasons": []
+      },
+      {
+        "score": 54,
+        "title": "Графический дизайнер в образовательный холдинг Study Link",
+        "reasons": []
+      },
+      {
+        "score": 44,
+        "title": "Team Lead Merch Design / Руководитель направления дизайна мерча",
+        "reasons": []
+      },
+      {
+        "score": 35,
+        "title": "Визуальный мерчандайзер Планограммист косметика",
+        "reasons": []
+      },
+      {
+        "score": 34,
+        "title": "Motion Designer / Моушен-дизайнер (Видеодизайнер)",
+        "reasons": []
+      },
+      {
+        "score": 34,
+        "title": "UX проектировщик",
+        "reasons": []
+      },
+      {
+        "score": 32,
+        "title": "Моушн-дизайнер / Motion Designer (iGaming)",
+        "reasons": []
+      },
+      {
+        "score": 32,
+        "title": "Motion Designer / Моушен-дизайнер (Видеодизайнер)",
+        "reasons": []
+      },
+      {
+        "score": 32,
+        "title": "Senior Generative AI Specialist",
+        "reasons": []
+      }
+    ]
+  },
+  "preferences_snapshot": {
+    "desirable": [
+      "графический дизайнер",
+      "дизайнер карточек",
+      "маркетплейс",
+      "Wildberries",
+      "Ozon",
+      "инфографика",
+      "карточка товара",
+      "Rich content",
+      "фирменный стиль",
+      "предпечатка",
+      "Figma",
+      "Photoshop",
+      "удалёнка",
+      "гибрид",
+      "Москва",
+      "115000",
+      "на руки",
+      "CorelDRAW",
+      "Illustrator"
+    ],
+    "neutral": [
+      "полная занятость",
+      "коммерческий дизайн",
+      "баннеры",
+      "логотип"
+    ],
+    "undesirable": [
+      "только UI/UX приложений",
+      "frontend",
+      "верстка",
+      "3D без 2D",
+      "видеомонтаж",
+      "SMM-контент без дизайна макетов",
+      "английский обязателен"
+    ],
+    "reject": [
+      "разработчик",
+      "programmer",
+      "backend",
+      "frontend dev",
+      "продажи",
+      "менеджер по продажам",
+      "SMM-менеджер",
+      "HR",
+      "рекрутер",
+      "маркетолог без дизайна",
+      "only on-site",
+      "релокация",
+      "зарплата значительно ниже 115000"
+    ]
+  },
+  "answers": {
+    "q1_managers": [
+      "Dual SERP: sphere seeds + Desirable OR (маркетплейс/WB/Ozon/Figma/гибрид/Москва) тянут менеджеров из description.",
+      "Reject слишком узкий: «менеджер по продажам» есть, голого «менеджер»/«руководитель» без design-исключения нет.",
+      "Sphere designer = thin blacklist (dev/salesy), не allowlist роли дизайнера.",
+      "В Cursor-батче менеджерских title: 45; title-гейты сейчас всё ещё пропускают 45."
+    ],
+    "q2_nondesign": [
+      "Нет positive allowlist по title для sphere=Дизайнер.",
+      "Без design-сигнала в title: 102 / 124 Cursor-скоров.",
+      "Desirable-ключи про локацию/формат/маркетплейс ≠ роль дизайнера.",
+      "Undesirable (frontend) не режет SERP — только мягко влияет на Cursor."
+    ],
+    "q3_low_scores": [
+      "Cursor scored 124 из deep=254; ~130 отсеялись secondary reject/sphere после полного текста без SDK.",
+      "Из Cursor: ≤35% = 115, <20% = 98, ≥70% = 1 — Cursor в основном прав, но поздно.",
+      "Primary/secondary смотрят keyword+blacklist, не «обязан быть дизайн».",
+      "Title-killable текущими правилами среди low: 0/115 — значит большинство low легальны для нынешних гейтов."
+    ],
+    "q4_speedup": [
+      "Allowlist title до deep: дизайн-сигнал обязателен.",
+      "Reject: менеджер/руководитель/маркетолог/SMM/рекрутер/координатор/оператор без design-слова.",
+      "Desirable: убрать Москва/гибрид/115000/на руки/голый маркетплейс; Desirable SERP → search_field=name.",
+      "References: 3–5 живых FIT карточек; в профиле якоря «карточки WB/Ozon, инфографика, Figma/PS».",
+      "Снизить deep_score_max пока префильтр слабый; pre-Cursor title gate."
+    ]
+  }
+}

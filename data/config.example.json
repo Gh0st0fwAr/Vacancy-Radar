@@ -7,7 +7,7 @@
   "dnd": false,
   "minimize_previous": false,
   "chrome_debug_port": 9222,
-  "hh_search_url": "https://hh.ru/search/vacancy?text=Vue+OR+Vue2+OR+Vue3+OR+Nuxt+OR+TypeScript+OR+Fullstack+OR+Full-stack+OR+%22Full+stack%22+OR+%D0%A4%D1%83%D0%BB%D0%BB%D1%81%D1%82%D0%B5%D0%BA+OR+%D0%A4%D1%83%D0%BB%D1%81%D1%82%D0%B5%D0%BA&search_field=name&search_field=description&schedule=remote&order_by=publication_time&search_period=2&items_on_page=50",
+  "hh_search_url": "https://hh.ru/search/vacancy?search_field=name&search_field=description&schedule=remote&order_by=publication_time&search_period=2&items_on_page=50",
   "salary_target": 160000,
   "salary_floor": 120000,
   "salary_good": 140000,

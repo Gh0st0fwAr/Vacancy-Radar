@@ -203,10 +203,13 @@ def search_once(
     store: QueueStore,
     *,
     clear_check: bool = False,
+    include_visited: bool = False,
     on_progress: Optional[Callable[[str], None]] = None,
 ) -> Dict:
     cfg = load_config()
     threshold = int(cfg.get("score_threshold") or 70)
+    min_score = int(cfg.get("min_score") or 0)
+    effective_threshold = max(threshold, min_score)
     url = cfg.get("hh_search_url")
     excludes = load_excludes(cfg)
     deep = bool(cfg.get("deep_score", True))
@@ -236,6 +239,9 @@ def search_once(
     if clear_check:
         cc_days = int(cfg.get("clear_check_days") or 7)
         seed_urls = [_with_search_period(u, cc_days) for u in seed_urls]
+    else:
+        snp = max(1, min(31, int(cfg.get("search_now_period") or 2)))
+        seed_urls = [_with_search_period(u, snp) for u in seed_urls]
 
     per_vac = 18.0 if deep else 4.0
     # Extra SERP seeds (Desirable OR-query) need more chrome time
@@ -283,10 +289,10 @@ def search_once(
                         "clear_check": clear_check,
                     }
 
-                if clear_check:
+                if clear_check and include_visited:
                     serp_links = [norm_url(c.get("url") or "") for c in cards]
                     cleared = store.forget_seen(serp_links)
-                    prog(f"Clear Check: сброшено seen для {cleared} URL с SERP")
+                    prog(f"Clear Check: сброшено seen для {cleared} URL с SERP (include_visited)")
 
                 candidates: List[dict] = []
                 for c in cards:
@@ -432,10 +438,10 @@ def search_once(
                 store.mark(link, "banned")
                 skipped += 1
                 continue
-            if not ok or sc < threshold:
+            if not ok or sc < effective_threshold:
                 store.remember(link)
                 skipped += 1
-                prog(f"  {sc}% — ниже порога {threshold}")
+                prog(f"  {sc}% — ниже порога {effective_threshold}")
                 continue
 
             full_text = (snippet or "")[:12000]

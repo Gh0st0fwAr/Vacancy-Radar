@@ -66,12 +66,15 @@ def score_for_search(
 
     # Three-tier sphere gate (activity_sphere) — before Cursor spend.
     _sphere_uncertain_note: str = ""
+    _gate_verdict: str = "uncertain"
+    _gate_reasons: List[str] = []
     try:
         from .sphere_filter import build_sphere_prompt_block, title_sphere_gate
         from .user_profile import load_profile
 
         sphere = (load_profile().get("activity_sphere") or "").strip()
         verdict, gate_reasons = title_sphere_gate(title or "", sphere, snippet or "")
+        _gate_verdict, _gate_reasons = verdict, gate_reasons
 
         if verdict == "reject":
             meta = {"source": "sphere_reject", "elapsed_ms": 0, "usage": None}
@@ -82,6 +85,8 @@ def score_for_search(
                     "score": 0,
                     "accept": False,
                     "source": "sphere_reject",
+                    "gate_verdict": verdict,
+                    "gate_reasons": gate_reasons,
                     "elapsed_ms": 0,
                     "usage": None,
                 }
@@ -163,6 +168,8 @@ def score_for_search(
                 "score": score,
                 "accept": accept_ok,
                 "source": "cursor",
+                "gate_verdict": _gate_verdict,
+                "gate_reasons": _gate_reasons,
                 "elapsed_ms": meta["elapsed_ms"],
                 "usage": meta["usage"],
             }

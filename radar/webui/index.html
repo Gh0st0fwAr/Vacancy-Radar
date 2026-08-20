@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@450;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="app.css?v=20260819c" />
+  <link rel="stylesheet" href="app.css?v=20260820a" />
   <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 </head>
 <body>
@@ -22,7 +22,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
           Search Now <span class="kbd">F5</span>
         </button>
-        <button class="btn btn-ghost" type="button" id="btn-clear-check" title="Full SERP recheck (2 days), reset seen, ignore visited">
+        <button class="btn btn-primary" type="button" id="btn-clear-check" title="Full SERP recheck with custom period — opens settings dialog">
           Clear Check
         </button>
         <button class="btn btn-ghost" type="button" id="btn-stats">
@@ -146,8 +146,14 @@
               </div>
               <div class="cv-name-row">
                 <span class="cv-name" id="up-cv-name"></span>
-                <button class="btn btn-ghost btn-sm" type="button" id="up-cv-clear">Clear CV</button>
               </div>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-label">Minimal Score <span class="req">[REQUIRED]</span></div>
+            <div>
+              <input class="input input-narrow" type="number" id="up-min-score" min="0" max="100" value="0" />
+              <div class="min-score-hint" id="min-score-hint"></div>
             </div>
           </div>
           <div class="field-row">
@@ -164,6 +170,7 @@
           </div>
           <div class="block-actions">
             <span class="upload-status" id="up-profile-status" aria-live="polite"></span>
+            <button class="btn btn-ghost" type="button" id="up-cv-clear" style="margin-right:16px">Clear CV</button>
             <button class="btn btn-primary" type="button" id="btn-up-profile" disabled>Upload</button>
           </div>
         </div>
@@ -202,6 +209,7 @@
           </div>
           <div class="block-actions">
             <span class="upload-status" id="up-pref-status" aria-live="polite"></span>
+            <button class="btn btn-ghost" type="button" id="btn-clear-prefs" style="margin-right:16px">Clear CFG</button>
             <button class="btn btn-primary" type="button" id="btn-up-preferences">Upload</button>
           </div>
         </div>
@@ -219,7 +227,28 @@
           </div>
           <div class="block-actions">
             <span class="upload-status" id="up-ref-status" aria-live="polite"></span>
+            <button class="btn btn-ghost" type="button" id="btn-clear-refs" style="margin-right:16px">Clear CFG</button>
             <button class="btn btn-primary" type="button" id="btn-up-references">Upload</button>
+          </div>
+        </div>
+
+        <div class="panel" id="panel-workers">
+          <h3>Workers</h3>
+          <div class="field-row">
+            <div class="field-label">Title scoring workers</div>
+            <input class="input input-narrow" type="number" id="opt-title-workers" min="1" max="20" value="3" />
+          </div>
+          <div class="field-row">
+            <div class="field-label">Text scoring workers</div>
+            <input class="input input-narrow" type="number" id="opt-text-workers" min="1" max="20" value="5" />
+          </div>
+          <div class="field-row">
+            <div class="field-label">Cover letter workers</div>
+            <input class="input input-narrow" type="number" id="opt-letter-workers" min="1" max="20" value="5" />
+          </div>
+          <div class="block-actions">
+            <span class="upload-status" id="up-workers-status" aria-live="polite"></span>
+            <button class="btn btn-primary" type="button" id="btn-up-workers">Upload</button>
           </div>
         </div>
 
@@ -236,6 +265,18 @@
             <button class="btn" type="button" id="btn-pack-load">Load</button>
             <button class="btn btn-ghost" type="button" id="btn-pack-download">Download config</button>
             <button class="btn btn-ghost" type="button" id="btn-pack-import">Load from file</button>
+          </div>
+        </div>
+
+        <div class="panel" id="panel-search-settings">
+          <h3>Search Settings</h3>
+          <div class="field-row">
+            <div class="field-label">Search Now period <span class="opt">(days, max 31)</span></div>
+            <input class="input input-narrow" type="number" id="opt-search-period" min="1" max="31" value="2" />
+          </div>
+          <div class="block-actions">
+            <span class="upload-status" id="up-search-settings-status" aria-live="polite"></span>
+            <button class="btn btn-primary" type="button" id="btn-up-search-settings">Upload</button>
           </div>
         </div>
 
@@ -264,8 +305,6 @@
               <option value="cursor">Cursor SDK only</option>
               <option value="rules">Python rules</option>
             </select>
-            <label for="opt-clear-check-days" class="field-label inline">Clear Check Range (days)</label>
-            <input class="input input-narrow" type="number" id="opt-clear-check-days" min="1" max="30" value="2" />
           </div>
         </div>
         <div class="panel">
@@ -287,6 +326,34 @@
       <div class="updated" id="strip-updated">Last Updated: -</div>
     </footer>
   </div>
-  <script src="app.js?v=20260819c"></script>
+  <!-- CLEAR CHECK MODAL -->
+  <div class="modal-backdrop" id="modal-clear-check" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-cc-title">
+      <h3 class="modal-title" id="modal-cc-title">Clear Check</h3>
+      <p class="modal-sub">Runs a deep SERP scan with the chosen period.</p>
+      <div class="modal-field">
+        <label class="modal-label" for="cc-period-select">Search period</label>
+        <select class="select" id="cc-period-select">
+          <option value="7">7 days</option>
+          <option value="14">14 days</option>
+          <option value="21">21 days</option>
+          <option value="28">28 days</option>
+          <option value="31">31 days</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label class="toggle">
+          <input type="checkbox" id="cc-include-viewed" />
+          <span>Include already viewed vacancies</span>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="btn-cc-cancel">Cancel</button>
+        <button class="btn btn-primary" type="button" id="btn-cc-confirm">Run Clear Check</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20260820a"></script>
 </body>
 </html>

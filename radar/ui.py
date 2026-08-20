@@ -343,7 +343,7 @@ class MainWindow(QMainWindow):
         w = self.web
         w.bind("ready", lambda _p: self._push_all_state())
         w.bind("search", lambda _p: self.run_search())
-        w.bind("clearCheck", lambda _p: self.run_clear_check())
+        w.bind("clearCheck", lambda p: self.run_clear_check(p or {}))
         w.bind("stats", lambda _p: self.run_stats())
         w.bind("select", lambda p: self._web_select(p.get("url") or ""))
         w.bind("open", lambda _p: self.open_selected())
@@ -362,8 +362,11 @@ class MainWindow(QMainWindow):
         w.bind("_error", lambda p: self.append_log("UI: " + str((p or {}).get("error") or "")))
         w.bind("uploadProfile", lambda p: self._web_upload_profile(p or {}))
         w.bind("clearProfile", lambda _p: self._web_clear_profile())
+        w.bind("clearPreferences", lambda _p: self._web_clear_preferences())
+        w.bind("clearReferences", lambda _p: self._web_clear_references())
         w.bind("uploadPreferences", lambda p: self._web_upload_preferences(p or {}))
         w.bind("uploadReferences", lambda p: self._web_upload_references(p or {}))
+        w.bind("setWorkers", lambda p: self._web_set_workers(p or {}))
         w.bind("savePack", lambda p: self._web_save_pack(p or {}))
         w.bind("loadPack", lambda p: self._web_load_pack(p or {}))
         w.bind("importPack", lambda p: self._web_import_pack(p or {}))
@@ -396,6 +399,11 @@ class MainWindow(QMainWindow):
                 "ui_theme": str(self.cfg.get("ui_theme") or "04"),
                 "scoring_mode": str(self.cfg.get("scoring_mode") or "cursor"),
                 "clear_check_days": int(self.cfg.get("clear_check_days") or 7),
+                "min_score": int(self.cfg.get("min_score") or 0),
+                "search_now_period": int(self.cfg.get("search_now_period") or 2),
+                "title_score_workers": int(self.cfg.get("title_score_workers") or 3),
+                "cursor_score_workers": int(self.cfg.get("cursor_score_workers") or 5),
+                "cursor_letter_workers": int(self.cfg.get("cursor_letter_workers") or 5),
                 "themes": [{"id": t, "label": THEME_LABELS.get(t, t)} for t in THEME_IDS],
                 "scoring": scoring,
             },
@@ -435,6 +443,18 @@ class MainWindow(QMainWindow):
             except (TypeError, ValueError):
                 days = 7
             self.cfg["clear_check_days"] = max(1, min(90, days))
+        if "min_score" in p:
+            try:
+                ms = int(p.get("min_score") or 0)
+            except (TypeError, ValueError):
+                ms = 0
+            self.cfg["min_score"] = max(0, min(100, ms))
+        if "search_now_period" in p:
+            try:
+                snp = int(p.get("search_now_period") or 2)
+            except (TypeError, ValueError):
+                snp = 2
+            self.cfg["search_now_period"] = max(1, min(31, snp))
         if "autostart_enabled" in p:
             want = bool(p.get("autostart_enabled"))
             prev = bool(self.cfg.get("autostart_enabled", False))
@@ -505,9 +525,29 @@ class MainWindow(QMainWindow):
 
             result = clear_profile_action()
             self._push_scoring((result or {}).get("snapshot"))
-            self.append_log("User Profile: cleared")
+            self.append_log("User Profile: cleared (profile + prefs + refs + calibration)")
         except Exception as e:
             self.append_log(f"User Profile clear FAIL: {e}")
+
+    def _web_clear_preferences(self):
+        try:
+            from radar.scoring_actions import clear_preferences_action
+
+            result = clear_preferences_action()
+            self._push_scoring((result or {}).get("snapshot"))
+            self.append_log("Preferences: cleared")
+        except Exception as e:
+            self.append_log(f"Preferences clear FAIL: {e}")
+
+    def _web_clear_references(self):
+        try:
+            from radar.scoring_actions import clear_references_action
+
+            result = clear_references_action()
+            self._push_scoring((result or {}).get("snapshot"))
+            self.append_log("Vacancy References: cleared")
+        except Exception as e:
+            self.append_log(f"References clear FAIL: {e}")
 
     def _web_upload_preferences(self, p: dict):
         self._scoring_upload_status("preferences", "loading")
@@ -1169,10 +1209,50 @@ class MainWindow(QMainWindow):
     def run_search(self):
         self._run_search_impl(clear_check=False)
 
-    def run_clear_check(self):
-        self._run_search_impl(clear_check=True)
+    def run_clear_check(self, payload: dict = None):
+        p = payload or {}
+        days = None
+        include_visited = False
+        if p:
+            try:
+                days = int(p["days"])
+            except (KeyError, TypeError, ValueError):
+                days = None
+            include_visited = bool(p.get("include_visited", False))
+        # Save chosen days as the new default (per-run override).
+        if days is not None:
+            self.cfg["clear_check_days"] = max(1, min(90, days))
+            save_config(self.cfg)
+        self._run_search_impl(
+            clear_check=True,
+            include_visited=include_visited,
+        )
 
-    def _run_search_impl(self, *, clear_check: bool):
+    def _web_set_workers(self, p: dict):
+        changed = False
+        for key, cfg_key, lo, hi, default in [
+            ("title_score_workers", "title_score_workers", 1, 20, 3),
+            ("cursor_score_workers", "cursor_score_workers", 1, 20, 5),
+            ("cursor_letter_workers", "cursor_letter_workers", 1, 20, 5),
+        ]:
+            if key in p:
+                try:
+                    val = int(p[key])
+                except (TypeError, ValueError):
+                    val = default
+                self.cfg[cfg_key] = max(lo, min(hi, val))
+                changed = True
+        if changed:
+            save_config(self.cfg)
+            self.append_log(
+                f"Workers: title={self.cfg.get('title_score_workers')}, "
+                f"text={self.cfg.get('cursor_score_workers')}, "
+                f"letter={self.cfg.get('cursor_letter_workers')}"
+            )
+        if hasattr(self, "web"):
+            self.web.push("workersStatus", {"status": "ok"})
+
+    def _run_search_impl(self, *, clear_check: bool, include_visited: bool = False):
         if self._busy_search:
             self.append_log("Поиск уже идёт…")
             return
@@ -1180,17 +1260,24 @@ class MainWindow(QMainWindow):
         self.web.set_busy(search=True)
         if clear_check:
             days = int(self.cfg.get("clear_check_days") or 7)
-            self.append_log(f"Clear Check: SERP за последние {days} дн.…")
+            iv_note = " +viewed" if include_visited else ""
+            self.append_log(f"Clear Check: SERP за последние {days} дн.{iv_note}…")
             self._set_activity(busy=True, line=f"Clear Check: загрузка SERP ({days} дн.)…")
         else:
-            self.append_log("Поиск HH… (Cursor parallel + письма)")
+            snp = int(self.cfg.get("search_now_period") or 2)
+            self.append_log(f"Поиск HH… (период {snp} дн., Cursor parallel + письма)")
             self._set_activity(busy=True, line="Поиск: загрузка вакансий с HH…")
 
         def on_prog(msg: str) -> None:
             self.search_progress.emit(msg)
 
         def job():
-            return search_once(self.store, clear_check=clear_check, on_progress=on_prog)
+            return search_once(
+                self.store,
+                clear_check=clear_check,
+                include_visited=include_visited,
+                on_progress=on_prog,
+            )
 
         timeout = int(self.cfg.get("clear_check_timeout_sec") or 900) if clear_check else 600
         self._run_bg(

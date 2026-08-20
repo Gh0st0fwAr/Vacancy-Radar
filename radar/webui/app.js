@@ -43,6 +43,20 @@
     references: "up-ref-status",
   };
 
+  const CONFIRM = {
+    clearCv:
+      "Clear CV will wipe profile, preferences, references, and calibration. " +
+      "Unsaved profile pack is your responsibility. Continue?",
+    clearPrefs: "Clear preference keywords? All Desirable/Neutral/Undesirable/Reject tags and related calibration will be wiped.",
+    clearRefs: "Clear vacancy references? Reference URLs and reference calibration will be wiped.",
+    upload: "Upload and overwrite synced settings?",
+    newCv: "New CV will reset preferences, references and calibration. Continue?",
+  };
+
+  function confirmAction(message) {
+    return window.confirm(message);
+  }
+
   function send(action, payload) {
     if (!bridge) return;
     bridge.call(action, JSON.stringify(payload || {}));
@@ -297,8 +311,10 @@
 
     if (snap.profile_synced) {
       sc.preferencesUnlocked = true;
-      sc.pendingFile = null;
-      sc.pendingFileName = "";
+      if (prof.ready) {
+        sc.pendingFile = null;
+        sc.pendingFileName = "";
+      }
       sc.dirtyProfile = false;
       sc.filename = prof.filename || "";
       sc.portfolio = prof.portfolio || "";
@@ -354,9 +370,6 @@
     if (gh && !sc.dirtyProfile) gh.value = sc.github;
     if (sphEl && !sc.dirtyProfile) sphEl.value = sc.activitySphere || "";
 
-    const ccd = document.getElementById("opt-clear-check-days");
-    if (ccd && snap.clear_check_days != null) ccd.value = String(snap.clear_check_days);
-
     PREF_BUCKETS.forEach(renderPrefTags);
     if (!sc.dirtyRefs) renderRefRows(sc.refUrls.length ? sc.refUrls : [""]);
     renderPackSelect(sc.packNames);
@@ -395,6 +408,34 @@
     if (dzText) dzText.textContent = "CV: " + state.scoring.pendingFileName;
     updateScoringControls();
     updateScoringPanelVisuals();
+  }
+
+  function resetProfileLinkFields() {
+    state.scoring.portfolio = "";
+    state.scoring.github = "";
+    state.scoring.activitySphere = "";
+    const port = document.getElementById("up-portfolio");
+    const gh = document.getElementById("up-github");
+    const sph = document.getElementById("up-sphere");
+    if (port) port.value = "";
+    if (gh) gh.value = "";
+    if (sph) sph.value = "";
+  }
+
+  function trySetPendingFile(file, fileInput) {
+    if (!file) return;
+    if (!confirmAction(CONFIRM.newCv)) {
+      if (fileInput) fileInput.value = "";
+      return;
+    }
+    // Keep pending file across async scoring snapshot from clearProfile.
+    state.scoring.dirtyProfile = true;
+    state.scoring.dirtyPrefs = false;
+    state.scoring.dirtyRefs = false;
+    setPendingFile(file);
+    send("clearProfile");
+    resetProfileLinkFields();
+    setPendingFile(file);
   }
 
   function baseOptPayload() {
@@ -458,7 +499,7 @@
         e.preventDefault();
         dz.classList.remove("is-drag");
         const f = e.dataTransfer.files && e.dataTransfer.files[0];
-        if (f) setPendingFile(f);
+        if (f) trySetPendingFile(f, fileInput);
       });
     }
     if (browseBtn && fileInput) {
@@ -469,19 +510,48 @@
       });
       fileInput.addEventListener("change", function () {
         const f = fileInput.files && fileInput.files[0];
-        if (f) setPendingFile(f);
-        fileInput.value = "";
+        if (f) trySetPendingFile(f, fileInput);
+        else fileInput.value = "";
       });
     }
 
     const btnClearCv = document.getElementById("up-cv-clear");
-    if (btnClearCv) btnClearCv.onclick = function () {
-      send("clearProfile");
-    };
+    if (btnClearCv) {
+      btnClearCv.onclick = function () {
+        if (!confirmAction(CONFIRM.clearCv)) return;
+        state.scoring.pendingFile = null;
+        state.scoring.pendingFileName = "";
+        state.scoring.dirtyProfile = false;
+        state.scoring.dirtyPrefs = false;
+        state.scoring.dirtyRefs = false;
+        const fileInput = document.getElementById("up-cv-file");
+        if (fileInput) fileInput.value = "";
+        send("clearProfile");
+      };
+    }
+
+    const btnClearPrefs = document.getElementById("btn-clear-prefs");
+    if (btnClearPrefs) {
+      btnClearPrefs.onclick = function () {
+        if (!confirmAction(CONFIRM.clearPrefs)) return;
+        state.scoring.dirtyPrefs = false;
+        send("clearPreferences");
+      };
+    }
+
+    const btnClearRefs = document.getElementById("btn-clear-refs");
+    if (btnClearRefs) {
+      btnClearRefs.onclick = function () {
+        if (!confirmAction(CONFIRM.clearRefs)) return;
+        state.scoring.dirtyRefs = false;
+        send("clearReferences");
+      };
+    }
 
     const btnProf = document.getElementById("btn-up-profile");
     if (btnProf) {
       btnProf.onclick = function () {
+        if (!confirmAction(CONFIRM.upload)) return;
         setUploadStatus("up-profile-status", "loading");
         const portfolio = document.getElementById("up-portfolio").value.trim();
         const github = document.getElementById("up-github").value.trim();
@@ -517,6 +587,7 @@
     const btnPref = document.getElementById("btn-up-preferences");
     if (btnPref) {
       btnPref.onclick = function () {
+        if (!confirmAction(CONFIRM.upload)) return;
         setUploadStatus("up-pref-status", "loading");
         send("uploadPreferences", { preferences: collectPreferencesFromDOM() });
       };
@@ -525,6 +596,7 @@
     const btnRef = document.getElementById("btn-up-references");
     if (btnRef) {
       btnRef.onclick = function () {
+        if (!confirmAction(CONFIRM.upload)) return;
         setUploadStatus("up-ref-status", "loading");
         send("uploadReferences", { urls: collectRefUrls() });
       };
@@ -600,20 +672,113 @@
       };
     }
 
-    const ccd = document.getElementById("opt-clear-check-days");
-    if (ccd) {
-      ccd.addEventListener("change", function () {
+    const minScoreInp = document.getElementById("up-min-score");
+    if (minScoreInp) {
+      minScoreInp.addEventListener("input", function () {
+        updateMinScoreHint();
         clearTimeout(clearCheckDaysTimer);
         clearCheckDaysTimer = setTimeout(function () {
-          const days = parseInt(ccd.value, 10);
-          send("setOpt", Object.assign({}, baseOptPayload(), { clear_check_days: days > 0 ? days : 7 }));
-        }, 400);
+          const ms = parseInt(minScoreInp.value, 10);
+          send("setOpt", { min_score: isNaN(ms) ? 0 : Math.max(0, Math.min(100, ms)) });
+        }, 500);
       });
     }
 
     renderRefRows([""]);
     updateScoringControls();
     updateScoringPanelVisuals();
+  }
+
+  function updateMinScoreHint() {
+    const inp = document.getElementById("up-min-score");
+    const hint = document.getElementById("min-score-hint");
+    if (!inp || !hint) return;
+    const ms = parseInt(inp.value, 10);
+    if (isNaN(ms) || ms <= 0) {
+      hint.textContent = "";
+      hint.className = "min-score-hint";
+      return;
+    }
+    const filtered = state.items.filter(function (it) {
+      const sc = typeof it.score === "number" ? it.score : parseInt(it.score, 10);
+      return !isNaN(sc) && sc < ms;
+    }).length;
+    hint.textContent =
+      filtered > 0
+        ? filtered + " vacancies in queue are below this threshold"
+        : "No vacancies in queue would be filtered";
+    hint.className = "min-score-hint" + (filtered > 0 ? " warn" : "");
+  }
+
+  function openClearCheckModal() {
+    const modal = document.getElementById("modal-clear-check");
+    if (!modal) return;
+    const sel = document.getElementById("cc-period-select");
+    if (sel) {
+      const stored = (state.settings || {}).clear_check_days || 7;
+      const opts = [7, 14, 21, 28, 31];
+      const best = opts.reduce(function (a, b) {
+        return Math.abs(b - stored) < Math.abs(a - stored) ? b : a;
+      });
+      sel.value = String(best);
+    }
+    const iv = document.getElementById("cc-include-viewed");
+    if (iv) iv.checked = false;
+    modal.hidden = false;
+  }
+
+  function closeClearCheckModal() {
+    const modal = document.getElementById("modal-clear-check");
+    if (modal) modal.hidden = true;
+  }
+
+  function confirmClearCheck() {
+    const sel = document.getElementById("cc-period-select");
+    const iv = document.getElementById("cc-include-viewed");
+    const days = sel ? parseInt(sel.value, 10) : 7;
+    const includeViewed = iv ? iv.checked : false;
+    closeClearCheckModal();
+    send("clearCheck", { days: days, include_visited: includeViewed });
+  }
+
+  function wireWorkers() {
+    const btn = document.getElementById("btn-up-workers");
+    if (!btn) return;
+    btn.onclick = function () {
+      const tw = parseInt((document.getElementById("opt-title-workers") || {}).value, 10) || 3;
+      const sw = parseInt((document.getElementById("opt-text-workers") || {}).value, 10) || 5;
+      const lw = parseInt((document.getElementById("opt-letter-workers") || {}).value, 10) || 5;
+      const toConfirm = [tw, sw, lw].some(function (v) { return v > 5; });
+      if (toConfirm) {
+        if (
+          !window.confirm(
+            "One or more worker counts exceed 5. This may cause heavy CPU/API usage. Continue?"
+          )
+        )
+          return;
+      }
+      setUploadStatus("up-workers-status", "loading");
+      send("setWorkers", {
+        title_score_workers: tw,
+        cursor_score_workers: sw,
+        cursor_letter_workers: lw,
+      });
+    };
+  }
+
+  function wireSearchSettings() {
+    const btn = document.getElementById("btn-up-search-settings");
+    if (!btn) return;
+    btn.onclick = function () {
+      const el = document.getElementById("opt-search-period");
+      const val = el ? parseInt(el.value, 10) : 2;
+      const clamped = isNaN(val) ? 2 : Math.max(1, Math.min(31, val));
+      setUploadStatus("up-search-settings-status", "loading");
+      send("setOpt", { search_now_period: clamped });
+      setTimeout(function () {
+        setUploadStatus("up-search-settings-status", "ok");
+      }, 400);
+    };
   }
 
   function esc(s) {
@@ -906,8 +1071,19 @@
     } else if (sel && s.ui_theme) {
       sel.value = s.ui_theme;
     }
-    const ccd = document.getElementById("opt-clear-check-days");
-    if (ccd && s.clear_check_days != null) ccd.value = String(s.clear_check_days);
+    const sp = document.getElementById("opt-search-period");
+    if (sp && s.search_now_period != null) sp.value = String(s.search_now_period);
+    const ms = document.getElementById("up-min-score");
+    if (ms && s.min_score != null) {
+      ms.value = String(s.min_score);
+      updateMinScoreHint();
+    }
+    const tw = document.getElementById("opt-title-workers");
+    if (tw && s.title_score_workers != null) tw.value = String(s.title_score_workers);
+    const sw = document.getElementById("opt-text-workers");
+    if (sw && s.cursor_score_workers != null) sw.value = String(s.cursor_score_workers);
+    const lw = document.getElementById("opt-letter-workers");
+    if (lw && s.cursor_letter_workers != null) lw.value = String(s.cursor_letter_workers);
     renderHotkeyBits();
     renderLogBox();
     // Do NOT re-hydrate scoring here — log/hotkey updates must not wipe a fresh scoring snapshot.
@@ -963,6 +1139,9 @@
         applyScoringSnapshot(data);
       } else if (event === "scoringUpload") {
         handleScoringUploadEvent(data);
+      } else if (event === "workersStatus") {
+        const st = (data || {}).status || "";
+        setUploadStatus("up-workers-status", st === "ok" ? "ok" : "error");
       } else if (event === "log") {
         if (data.line) state.logs.push(data.line);
         if (data.lines) state.logs = data.lines;
@@ -1001,7 +1180,16 @@
   function wire() {
     document.getElementById("btn-search").onclick = () => send("search");
     const btnClear = document.getElementById("btn-clear-check");
-    if (btnClear) btnClear.onclick = () => send("clearCheck");
+    if (btnClear) btnClear.onclick = () => openClearCheckModal();
+    const btnCcCancel = document.getElementById("btn-cc-cancel");
+    if (btnCcCancel) btnCcCancel.onclick = () => closeClearCheckModal();
+    const btnCcConfirm = document.getElementById("btn-cc-confirm");
+    if (btnCcConfirm) btnCcConfirm.onclick = () => confirmClearCheck();
+    const modalBackdrop = document.getElementById("modal-clear-check");
+    if (modalBackdrop)
+      modalBackdrop.addEventListener("click", function (e) {
+        if (e.target === modalBackdrop) closeClearCheckModal();
+      });
     document.getElementById("btn-stats").onclick = () => send("stats");
     document.getElementById("btn-stats2").onclick = () => send("stats");
     document.getElementById("btn-open").onclick = () => send("open");
@@ -1051,6 +1239,8 @@
       send("setTheme", { id: e.target.value });
     });
     wireScoring();
+    wireWorkers();
+    wireSearchSettings();
     document.addEventListener("keydown", (e) => {
       if (e.key === "F5") {
         e.preventDefault();

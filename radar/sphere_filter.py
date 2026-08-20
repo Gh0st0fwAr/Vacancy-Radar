@@ -227,8 +227,135 @@ OUT_OF_SPHERE_TITLE: dict[str, Tuple[str, ...]] = {
 }
 
 # ---------------------------------------------------------------------------
-# HARD-PASS patterns — title unambiguously names a developer/dev-adjacent role.
+# HARD-PASS patterns per sphere — title unambiguously names a matching role.
 # Matching any of these → immediate PASS regardless of other checks.
+# ---------------------------------------------------------------------------
+
+_DESIGNER_TITLE_PASS = re.compile(
+    r"(?i)("
+    r"дизайнер|designer|"
+    r"ui[\s/]?ux|ux[\s/]?ui|"
+    r"product\s+designer|web\s+designer|digital\s+designer|"
+    r"graphic\s+designer|графический\s+дизайнер|"
+    r"visual\s+designer|motion\s+design|"
+    r"art\s+director|арт[\s-]?директор|"
+    r"иллюстратор|illustrator|"
+    r"figma\s+designer|"
+    r"senior\s+designer|middle\s+designer|junior\s+designer|lead\s+designer"
+    r")"
+)
+
+_QA_TITLE_PASS = re.compile(
+    r"(?i)("
+    r"qa\s+(engineer|инженер|analyst|аналитик|specialist|specialist)|"
+    r"qa[\s-]?automation|qa[\s-]?manual|"
+    r"тестировщик|автотестировщик|"
+    r"sdet\b|"
+    r"quality\s+assurance\s+engineer|quality\s+engineer|"
+    r"automation\s+engineer|test\s+automation\s+engineer|"
+    r"software\s+tester|"
+    r"инженер[\s-]?тестировщик|"
+    r"senior\s+qa|middle\s+qa|junior\s+qa|lead\s+qa"
+    r")"
+)
+
+_ANALYST_TITLE_PASS = re.compile(
+    r"(?i)("
+    r"системный\s+аналитик|system\s+analyst|"
+    r"бизнес[\s-]?аналитик|business\s+analyst|"
+    r"продуктовый\s+аналитик|product\s+analyst|"
+    r"data\s+analyst|аналитик\s+данных|"
+    r"аналитик\s+(1c|1с|crm|erp|bi)|"
+    r"requirements\s+analyst|аналитик\s+требований|"
+    r"senior\s+analyst|lead\s+analyst|middle\s+analyst|junior\s+analyst"
+    r")"
+)
+
+_DEVOPS_TITLE_PASS = re.compile(
+    r"(?i)("
+    r"devops[\s-]?engineer|devops[\s-]?инженер|"
+    r"site\s+reliability\s+engineer|sre\b|"
+    r"platform\s+engineer|infrastructure\s+engineer|"
+    r"cloud\s+engineer|kubernetes\s+engineer|"
+    r"инженер\s+(devops|инфраструктуры|платформы)|"
+    r"linux\s+administrator|системный\s+администратор|system\s+administrator|sysadmin"
+    r")"
+)
+
+_PM_TITLE_PASS = re.compile(
+    r"(?i)("
+    r"product\s+manager|продуктовый\s+менеджер|менеджер\s+продукта|"
+    r"product\s+owner|владелец\s+продукта|"
+    r"project\s+manager|менеджер\s+проекта|руководитель\s+проекта|"
+    r"scrum\s+master|agile\s+coach|"
+    r"head\s+of\s+product|chief\s+product\s+officer"
+    r")"
+)
+
+_SUPPORT_TITLE_PASS = re.compile(
+    r"(?i)("
+    r"специалист\s+(технической\s+)?поддержки|"
+    r"инженер\s+(технической\s+)?поддержки|"
+    r"support\s+engineer|technical\s+support\s+(specialist|engineer|analyst)|"
+    r"helpdesk\s+(specialist|engineer)|help\s+desk\s+(specialist|engineer)|"
+    r"it\s+support\s+(specialist|engineer)|"
+    r"service\s+desk\s+(specialist|engineer|analyst)"
+    r")"
+)
+
+# Snippet signals: strong evidence a vacancy is for this sphere even if title is uncertain.
+_SNIPPET_SIGNALS: dict[str, re.Pattern] = {
+    "developer": re.compile(
+        r"(?i)(требуется.*(разработчик|developer|программист|engineer)|"
+        r"вакансия.*(разработчик|developer)|"
+        r"ищем.*(frontend|backend|fullstack|developer|разработчик)|"
+        r"опыт.*(программирования|разработки|typescript|javascript|vue|react)|"
+        r"стек.*(javascript|typescript|python|java\b|golang|php))"
+    ),
+    "designer": re.compile(
+        r"(?i)(требуется.*(дизайнер|designer)|"
+        r"вакансия.*(дизайнер|designer|ui.?ux)|"
+        r"ищем.*(дизайнер|designer)|"
+        r"опыт\s+(работы\s+)?(в\s+)?(figma|sketch|adobe\s+xd)|"
+        r"портфолио\s+(дизайнера|обязательно))"
+    ),
+    "qa": re.compile(
+        r"(?i)(требуется.*(тестировщик|qa\s+engineer|автоматизатор)|"
+        r"вакансия.*(тестировщик|sdet|qa)|"
+        r"ищем.*(тестировщик|qa\s+engineer)|"
+        r"опыт.*(тестирования|test\s+automation|selenium|cypress))"
+    ),
+    "analyst": re.compile(
+        r"(?i)(требуется.*(аналитик|analyst)|"
+        r"вакансия.*(системный аналитик|бизнес.?аналитик)|"
+        r"ищем.*(аналитик|analyst)|"
+        r"опыт.*(uml|bpmn|user\s+stor|требований|requirements))"
+    ),
+    "devops": re.compile(
+        r"(?i)(требуется.*(devops|sre|инженер.инфраструктур)|"
+        r"вакансия.*(devops|kubernetes|helm|terraform)|"
+        r"ищем.*(devops|platform\s+engineer)|"
+        r"опыт.*(kubernetes|k8s|docker|terraform|ansible|helm))"
+    ),
+    "pm": re.compile(
+        r"(?i)(требуется.*(product\s+manager|project\s+manager|продуктовый)|"
+        r"вакансия.*(product\s+owner|scrum\s+master)|"
+        r"ищем.*(product\s+manager|проджект|продакт)|"
+        r"опыт.*(управлени[ея]\s+продуктом|scrum|agile\s+методо))"
+    ),
+    "support": re.compile(
+        r"(?i)(требуется.*(поддержк|support\s+engineer|helpdesk)|"
+        r"вакансия.*(техническая\s+поддержк|it\s+support)|"
+        r"ищем.*(специалист.поддержк|support\s+engineer)|"
+        r"опыт.*(поддержк|service\s+desk|helpdesk|jira|zendesk))"
+    ),
+}
+
+# Map category → HARD PASS regex
+_SPHERE_PASS: dict[str, re.Pattern] = {}  # filled after all patterns are defined
+
+# ---------------------------------------------------------------------------
+# HARD-PASS for developer — title unambiguously names a dev/dev-adjacent role.
 # ---------------------------------------------------------------------------
 _DEV_TITLE_PASS = re.compile(
     r"(?i)("
@@ -318,6 +445,16 @@ _SALESY_TITLE = re.compile(
     r")\b"
 )
 
+_SPHERE_PASS["developer"] = _DEV_TITLE_PASS
+
+# Populate remaining sphere pass maps after all patterns are defined.
+_SPHERE_PASS["designer"] = _DESIGNER_TITLE_PASS
+_SPHERE_PASS["qa"] = _QA_TITLE_PASS
+_SPHERE_PASS["analyst"] = _ANALYST_TITLE_PASS
+_SPHERE_PASS["devops"] = _DEVOPS_TITLE_PASS
+_SPHERE_PASS["pm"] = _PM_TITLE_PASS
+_SPHERE_PASS["support"] = _SUPPORT_TITLE_PASS
+
 _DEV_POSITIVE = re.compile(
     r"(?i)("
     r"developer|разработчик|программист|frontend|backend|fullstack|"
@@ -398,10 +535,11 @@ def title_sphere_gate(
 
     # ------------------------------------------------------------------
     # HARD PASS: title unambiguously names a role matching this sphere.
-    # Only for "developer" category for now; other spheres rely on legacy path.
+    # Covers all known sphere categories.
     # ------------------------------------------------------------------
-    if cat == "developer" and _DEV_TITLE_PASS.search(title_l):
-        return "pass", ["gate:dev-title-match"]
+    if cat and cat in _SPHERE_PASS:
+        if _SPHERE_PASS[cat].search(title_l):
+            return "pass", [f"gate:{cat}-title-match"]
 
     # ------------------------------------------------------------------
     # HARD REJECT via legacy logic (reuse existing function).
@@ -439,6 +577,15 @@ def title_sphere_gate(
             title_l,
         ):
             return "uncertain", ["gate:bare-head-title"]
+
+    # ------------------------------------------------------------------
+    # Snippet-based upgrade: if title is uncertain but snippet has strong
+    # sphere signals, upgrade to PASS so Cursor doesn't waste a warning.
+    # ------------------------------------------------------------------
+    if cat and snippet:
+        sig = _SNIPPET_SIGNALS.get(cat)
+        if sig and sig.search(snippet[:800]):
+            return "pass", ["gate:snippet-signal"]
 
     # ------------------------------------------------------------------
     # Default: no strong signal either way.

@@ -201,43 +201,31 @@ def build_desirable_hh_url(
     base_hh_url: str,
     prefs: Optional[Dict[str, List[str]]] = None,
 ) -> Optional[str]:
-    """Clone hh_search_url but set text= to OR of Desirable keywords.
+    """Build HH URL from Desirable keywords only (secondary SERP seed).
 
     Returns None if Desirable is empty. Title matches on Desirable words are
     intentional (e.g. Senior in Desirable pulls Senior vacancies for scoring).
     Out-of-sphere noise is handled by ``sphere_filter``, not by stripping
     Desirable tokens from this query.
     """
-    from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+    from .hh_search_url import build_hh_search_url
 
     data = prefs if prefs is not None else load_preferences()
     kws = normalize_keywords(data.get("desirable") or [])
     if not kws:
         return None
     base = str(base_hh_url or "").strip()
-    if not base:
-        return None
-    # Cap OR-query size for HH
-    kws = kws[:24]
-    text = " OR ".join(kws)
-    parsed = urlparse(base)
-    pairs = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k != "text"]
-    pairs.append(("text", text))
-    fields = [v for k, v in pairs if k == "search_field"]
-    if "name" not in fields:
-        pairs.append(("search_field", "name"))
-    if "description" not in fields:
-        pairs.append(("search_field", "description"))
-    return urlunparse(parsed._replace(query=urlencode(pairs, doseq=True)))
+    # Pass desirable explicitly (not None) so build uses keyword path, not sphere.
+    return build_hh_search_url(desirable=kws, base_url=base or None)
 
 
 def search_seed_urls(base_hh_url: str) -> List[str]:
-    """Base HH URL plus optional Desirable-derived URL (deduped)."""
+    """Primary cfg hh_search_url plus optional Desirable-only URL when different."""
     urls: List[str] = []
     base = str(base_hh_url or "").strip()
     if base:
         urls.append(base)
     extra = build_desirable_hh_url(base)
-    if extra and extra not in urls:
+    if extra and extra != base and extra not in urls:
         urls.append(extra)
     return urls

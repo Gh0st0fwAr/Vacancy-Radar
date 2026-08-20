@@ -8,12 +8,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 from .config import load_config
-from .preferences import load_preferences, save_preferences
+from .hh_search_url import NEUTRAL_HH_SEARCH_URL, sync_hh_search_url_to_config
+from .preferences import DEFAULT_PREFERENCES, load_preferences, save_preferences
 from .profile_analyze import analyze_user_profile, calibrate_preferences
 from .profile_packs import import_pack_from_path, list_packs, load_pack, save_pack
 from .reference_calibrate import upload_references_and_calibrate
-from .references import load_references
+from .references import DEFAULT_REFERENCES, load_references, save_references
 from .scoring_calibration import (
+    DEFAULT_CALIBRATION,
     load_calibration,
     merge_preferences_from_suggestion,
     save_calibration,
@@ -24,9 +26,11 @@ from .scoring_state import (
     fingerprint_profile,
     fingerprint_references,
     load_state,
+    mark_preferences_dirty,
     mark_preferences_synced,
     mark_profile_dirty,
     mark_profile_synced,
+    mark_references_dirty,
     mark_references_synced,
     ui_snapshot,
 )
@@ -47,6 +51,17 @@ def _write_b64_temp(filename: str, b64: str) -> Path:
     return Path(tf.name)
 
 
+def _prefs_nonempty(prefs: Dict[str, List[str]]) -> bool:
+    return any(prefs.get(k) for k in ("desirable", "neutral", "undesirable", "reject"))
+
+
+def _sync_search_url(cfg: Optional[dict] = None) -> str:
+    try:
+        return sync_hh_search_url_to_config(cfg)
+    except Exception:
+        return ""
+
+
 def upload_profile_action(
     *,
     resume_b64: str = "",
@@ -57,11 +72,12 @@ def upload_profile_action(
     force: bool = False,
     cfg: Optional[dict] = None,
 ) -> Dict[str, Any]:
-    """Save CV (+ optional links/sphere), run Cursor profile analysis, merge prefs."""
+    """Save CV (+ optional links/sphere), run Cursor profile analysis, update prefs."""
     cfg = cfg or load_config()
     st = load_state()
+    new_resume = bool(str(resume_b64 or "").strip())
 
-    if resume_b64:
+    if new_resume:
         tmp = _write_b64_temp(resume_filename or "resume.bin", resume_b64)
         try:
             upload_resume(tmp, original_filename=resume_filename or "resume.bin")
@@ -84,20 +100,24 @@ def upload_profile_action(
 
     # No-op if already synced and fingerprint unchanged
     if not force and st.get("profile_synced") and st.get("profile_fingerprint") == fingerprint_profile():
+        _sync_search_url(cfg)
         return {"ok": True, "noop": True, "snapshot": ui_snapshot()}
 
     analysis = analyze_user_profile(cfg)
     suggested = analysis.get("suggested_preferences") or {}
     existing = load_preferences()
-    merged = merge_preferences_from_suggestion(existing, suggested)
-    save_preferences(merged)
 
-    # Profile sync already marked inside analyze_user_profile; prefs changed → dirty until prefs Upload
-    from .scoring_state import mark_preferences_dirty
+    # New CV (or empty prefs after Clear) → replace with Cursor suggestion.
+    # Re-upload links/sphere only → keep union so manual tags are not wiped.
+    if new_resume or not _prefs_nonempty(existing):
+        merged = save_preferences(suggested or {})
+    else:
+        merged = merge_preferences_from_suggestion(existing, suggested)
+        save_preferences(merged)
 
     mark_preferences_dirty()
-    # Keep profile synced after successful analysis
     mark_profile_synced()
+    _sync_search_url(cfg)
 
     return {
         "ok": True,
@@ -115,11 +135,49 @@ def upload_profile_action(
 
 
 def clear_profile_action() -> Dict[str, Any]:
+    """Wipe profile, preferences, references, calibration; reset hh_search_url."""
     clear_profile()
+    save_preferences(dict(DEFAULT_PREFERENCES))
+    save_references(dict(DEFAULT_REFERENCES))
+    empty_cal = dict(DEFAULT_CALIBRATION)
+    save_calibration(empty_cal)
+    write_calibration_md(empty_cal)
     mark_profile_dirty()
-    from .scoring_state import mark_preferences_dirty
-
     mark_preferences_dirty()
+    mark_references_dirty()
+    cfg = load_config()
+    cfg["hh_search_url"] = NEUTRAL_HH_SEARCH_URL
+    from .config import save_config
+
+    save_config(cfg)
+    return {"ok": True, "snapshot": ui_snapshot()}
+
+
+def clear_preferences_action() -> Dict[str, Any]:
+    """Clear preference keyword buckets and prefs-related calibration."""
+    save_preferences(dict(DEFAULT_PREFERENCES))
+    cal = load_calibration()
+    cal["preferences_analysis"] = {"notes": "", "buckets_echo": {}}
+    profile = cal.get("profile")
+    if isinstance(profile, dict):
+        profile["suggested_preferences"] = dict(DEFAULT_PREFERENCES)
+    save_calibration(cal)
+    write_calibration_md(cal)
+    mark_preferences_dirty()
+    _sync_search_url()
+    return {"ok": True, "snapshot": ui_snapshot()}
+
+
+def clear_references_action() -> Dict[str, Any]:
+    """Clear reference URLs and references-related calibration."""
+    save_references(dict(DEFAULT_REFERENCES))
+    cal = load_calibration()
+    cal["references_analysis"] = {}
+    if cal.get("source") == "references_upload":
+        cal["source"] = ""
+    save_calibration(cal)
+    write_calibration_md(cal)
+    mark_references_dirty()
     return {"ok": True, "snapshot": ui_snapshot()}
 
 
@@ -137,9 +195,11 @@ def upload_preferences_action(
         and st.get("preferences_synced")
         and st.get("preferences_fingerprint") == fingerprint_preferences()
     ):
+        _sync_search_url(cfg)
         return {"ok": True, "noop": True, "snapshot": ui_snapshot()}
 
     calibrate_preferences(cfg)
+    _sync_search_url(cfg)
     return {"ok": True, "noop": False, "preferences": cleaned, "snapshot": ui_snapshot()}
 
 
@@ -151,14 +211,20 @@ def upload_references_action(
 ) -> Dict[str, Any]:
     cfg = cfg or load_config()
     url_list = [str(u).strip() for u in (urls or []) if str(u).strip()]
+
+    # Empty list is a valid clear (overwrite), not an error.
     if not url_list:
-        raise RuntimeError("No reference URLs")
+        save_references(dict(DEFAULT_REFERENCES))
+        cal = load_calibration()
+        cal["references_analysis"] = {}
+        if cal.get("source") == "references_upload":
+            cal["source"] = ""
+        save_calibration(cal)
+        write_calibration_md(cal)
+        mark_references_synced()
+        return {"ok": True, "noop": False, "cleared": True, "snapshot": ui_snapshot()}
 
     st = load_state()
-    # Pre-check noop against current disk + incoming set
-    from .references import set_urls
-
-    # If identical to disk and already synced — skip Cursor
     current = load_references().get("urls") or []
     if (
         not force
@@ -186,11 +252,13 @@ def save_pack_action(name: str) -> Dict[str, Any]:
 
 def load_pack_action(name: str) -> Dict[str, Any]:
     load_pack(name)
+    _sync_search_url()
     return {"ok": True, "snapshot": ui_snapshot(), "pack_names": list_packs()}
 
 
 def import_pack_action(path: str) -> Dict[str, Any]:
     import_pack_from_path(path)
+    _sync_search_url()
     return {"ok": True, "snapshot": ui_snapshot(), "pack_names": list_packs()}
 
 
