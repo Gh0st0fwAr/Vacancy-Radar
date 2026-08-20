@@ -56,13 +56,17 @@ class TestCursorViaMock:
             with patch("radar.cursor_score.BRIDGE") as br:
                 br.exists.return_value = True
                 with patch("radar.user_profile.is_profile_ready", return_value=True):
-                    with patch("radar.cursor_score._via_cursor", return_value=fake):
-                        sc, reasons, ok, meta = score_for_search(
-                            title="Fullstack Vue",
-                            snippet="Vue3 Node remote",
-                            schedule="remote",
-                            cfg=cfg,
-                        )
+                    with patch(
+                        "radar.sphere_filter.hard_reject_out_of_sphere",
+                        return_value=(False, []),
+                    ):
+                        with patch("radar.cursor_score._via_cursor", return_value=fake):
+                            sc, reasons, ok, meta = score_for_search(
+                                title="Fullstack Vue",
+                                snippet="Vue3 Node remote",
+                                schedule="remote",
+                                cfg=cfg,
+                            )
         assert sc == 82
         assert ok is True
         assert meta["source"] == "cursor"
@@ -87,12 +91,20 @@ class TestCursorViaMock:
             with patch("radar.cursor_score.BRIDGE") as br:
                 br.exists.return_value = True
                 with patch("radar.user_profile.is_profile_ready", return_value=True):
-                    with patch("radar.cursor_score._via_cursor", return_value=fake):
-                        sc, reasons, ok, meta = score_for_search(
-                            title="Ruby on Rails backend",
-                            snippet="Ruby Rails ActiveRecord",
-                            cfg=cfg,
-                        )
+                    with patch(
+                        "radar.preferences.hard_reject",
+                        return_value=(False, []),
+                    ):
+                        with patch(
+                            "radar.sphere_filter.hard_reject_out_of_sphere",
+                            return_value=(False, []),
+                        ):
+                            with patch("radar.cursor_score._via_cursor", return_value=fake):
+                                sc, reasons, ok, meta = score_for_search(
+                                    title="Ruby on Rails backend",
+                                    snippet="Ruby Rails ActiveRecord",
+                                    cfg=cfg,
+                                )
         assert sc == 45
         assert ok is False
         assert meta["source"] == "cursor"
@@ -107,12 +119,16 @@ class TestCursorViaMock:
             with patch("radar.cursor_score.BRIDGE") as br:
                 br.exists.return_value = True
                 with patch("radar.user_profile.is_profile_ready", return_value=True):
-                    with patch("radar.cursor_score._via_cursor", return_value=None):
-                        sc, reasons, ok, meta = score_for_search(
-                            title="Vue 3",
-                            snippet="Vue3 TS",
-                            cfg=cfg,
-                        )
+                    with patch(
+                        "radar.sphere_filter.hard_reject_out_of_sphere",
+                        return_value=(False, []),
+                    ):
+                        with patch("radar.cursor_score._via_cursor", return_value=None):
+                            sc, reasons, ok, meta = score_for_search(
+                                title="Vue 3",
+                                snippet="Vue3 TS",
+                                cfg=cfg,
+                            )
         assert sc == 0
         assert ok is False
         assert meta["source"] == "cursor_failed"

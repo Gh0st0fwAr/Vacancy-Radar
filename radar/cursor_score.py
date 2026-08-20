@@ -64,16 +64,16 @@ def score_for_search(
     except Exception:
         pass
 
-    # Hard sphere gate (activity_sphere) — before Cursor spend.
+    # Three-tier sphere gate (activity_sphere) — before Cursor spend.
+    _sphere_uncertain_note: str = ""
     try:
-        from .sphere_filter import hard_reject_out_of_sphere
+        from .sphere_filter import build_sphere_prompt_block, title_sphere_gate
         from .user_profile import load_profile
 
         sphere = (load_profile().get("activity_sphere") or "").strip()
-        rejected, rej_reasons = hard_reject_out_of_sphere(
-            title or "", snippet or "", sphere=sphere
-        )
-        if rejected:
+        verdict, gate_reasons = title_sphere_gate(title or "", sphere, snippet or "")
+
+        if verdict == "reject":
             meta = {"source": "sphere_reject", "elapsed_ms": 0, "usage": None}
             _append_metric(
                 {
@@ -86,7 +86,16 @@ def score_for_search(
                     "usage": None,
                 }
             )
-            return 0, rej_reasons or ["sphere-reject"], False, meta
+            return 0, gate_reasons or ["sphere-reject"], False, meta
+
+        if verdict == "uncertain" and sphere:
+            # Inject a soft warning into the Cursor prompt so it confirms the role.
+            _sphere_uncertain_note = build_sphere_prompt_block(
+                sphere,
+                uncertain_title=title or "",
+                uncertain_reasons=gate_reasons,
+            )
+        # verdict == "pass" → no extra note needed; proceed to Cursor normally.
     except Exception:
         pass
 
@@ -134,6 +143,7 @@ def score_for_search(
         experience=experience,
         threshold=threshold,
         cfg=cfg,
+        sphere_uncertain_note=_sphere_uncertain_note,
     )
     if cur and cur.get("ok"):
         score = int(cur.get("score") or 0)
@@ -191,11 +201,15 @@ def _via_cursor(
     experience: str,
     threshold: int,
     cfg: dict,
+    sphere_uncertain_note: str = "",
 ) -> Optional[dict]:
     key = _api_key(cfg)
     if not key or not BRIDGE.exists():
         return None
     links = links_dict()
+    candidate_block = build_candidate_block()
+    if sphere_uncertain_note:
+        candidate_block = candidate_block + "\n\n" + sphere_uncertain_note
     payload = {
         "title": title,
         "company": company,
@@ -207,7 +221,7 @@ def _via_cursor(
         "apiKey": key,
         "model": cfg.get("cursor_model") or "composer-2.5",
         "cwd": str(RULES_CWD),
-        "candidateProfile": build_candidate_block(),
+        "candidateProfile": candidate_block,
         "scoringRules": load_scoring_context(),
         "portfolioUrl": links["portfolioUrl"],
         "githubUrl": links["githubUrl"],
