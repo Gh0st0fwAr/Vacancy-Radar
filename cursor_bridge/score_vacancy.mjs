@@ -97,12 +97,31 @@ reasons: 2-6 short items (RU or EN) about FIT.`;
 
 function extractJson(text) {
   const s = String(text || "").trim();
+
+  try { return JSON.parse(s); } catch (_) {}
+
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const body = fence ? fence[1].trim() : s;
+
+  try { return JSON.parse(body); } catch (_) {}
+
   const start = body.indexOf("{");
-  const end = body.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("No JSON object in Cursor response");
-  return JSON.parse(body.slice(start, end + 1));
+  if (start < 0) throw new Error("No JSON object in Cursor response");
+
+  let depth = 0, inStr = false, escape = false;
+  for (let i = start; i < body.length; i++) {
+    const ch = body[i];
+    if (escape) { escape = false; continue; }
+    if (ch === "\\" && inStr) { escape = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) return JSON.parse(body.slice(start, i + 1));
+    }
+  }
+  throw new Error("No complete JSON object found in Cursor response");
 }
 
 function pickUsage(result) {

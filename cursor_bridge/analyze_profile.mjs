@@ -99,12 +99,47 @@ Analyze: are the buckets well-calibrated for this candidate? Any suggestions?`;
 
 function extractJson(text) {
   const s = String(text || "").trim();
+
+  // 1. Try parsing the whole string directly (fastest path, handles clean responses).
+  try {
+    return JSON.parse(s);
+  } catch (_) {}
+
+  // 2. Strip markdown fences if present.
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const body = fence ? fence[1].trim() : s;
+
+  // 3. Try direct parse of the (possibly de-fenced) body.
+  try {
+    return JSON.parse(body);
+  } catch (_) {}
+
+  // 4. Use depth-tracking to find the end of the FIRST top-level { … }
+  //    and parse only that slice. This handles trailing garbage that
+  //    `lastIndexOf("}")` would mis-identify as the JSON boundary.
   const start = body.indexOf("{");
-  const end = body.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("No JSON object in Cursor response");
-  return JSON.parse(body.slice(start, end + 1));
+  if (start < 0) throw new Error("No JSON object in Cursor response");
+
+  let depth = 0;
+  let inStr = false;
+  let escape = false;
+
+  for (let i = start; i < body.length; i++) {
+    const ch = body[i];
+    if (escape) { escape = false; continue; }
+    if (ch === "\\" && inStr) { escape = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        return JSON.parse(body.slice(start, i + 1));
+      }
+    }
+  }
+
+  throw new Error("No complete JSON object found in Cursor response");
 }
 
 async function main() {

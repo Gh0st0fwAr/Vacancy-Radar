@@ -156,10 +156,8 @@ def _score_reference_via_cursor(
 
     timeout = int(cfg.get("cursor_score_timeout_sec") or 120)
     try:
-        with tempfile.NamedTemporaryFile(
-            "w", encoding="utf-8", suffix=".json", delete=False
-        ) as tf:
-            json.dump(payload, tf, ensure_ascii=False)
+        with tempfile.NamedTemporaryFile("wb", suffix=".json", delete=False) as tf:
+            tf.write(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
             tmp = tf.name
         try:
             proc = subprocess.run(

@@ -70,10 +70,10 @@ def analyze_user_profile(cfg: Optional[dict] = None) -> Dict[str, Any]:
     }
 
     timeout = int(cfg.get("cursor_score_timeout_sec") or 120)
-    with tempfile.NamedTemporaryFile(
-        "w", encoding="utf-8", suffix=".json", delete=False
-    ) as tf:
-        json.dump(payload, tf, ensure_ascii=False)
+    # Binary mode avoids Windows text-mode \n→\r\n conversion that can
+    # corrupt multi-byte UTF-8 sequences written by ensure_ascii=False.
+    with tempfile.NamedTemporaryFile("wb", suffix=".json", delete=False) as tf:
+        tf.write(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
         tmp = tf.name
     try:
         proc = subprocess.run(
@@ -156,10 +156,8 @@ def calibrate_preferences(cfg: Optional[dict] = None) -> Dict[str, Any]:
     }
 
     timeout = int(cfg.get("cursor_score_timeout_sec") or 120)
-    with tempfile.NamedTemporaryFile(
-        "w", encoding="utf-8", suffix=".json", delete=False
-    ) as tf:
-        json.dump(payload, tf, ensure_ascii=False)
+    with tempfile.NamedTemporaryFile("wb", suffix=".json", delete=False) as tf:
+        tf.write(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
         tmp = tf.name
     try:
         proc = subprocess.run(
