@@ -227,10 +227,16 @@ def search_once(
     t0 = time.time()
 
     from .preferences import hard_reject, search_seed_urls
-    from .sphere_filter import hard_reject_out_of_sphere
+    from .sphere_filter import title_matches_pattern, title_sphere_gate
+    from .sphere_calibrate import calibrate_sphere_if_needed
     from .user_profile import load_profile
 
     activity_sphere = (load_profile().get("activity_sphere") or "").strip()
+
+    # One-time Cursor calibration for unknown spheres (outside Chrome lock, free on repeat runs).
+    _cal_reject, _cal_pass = calibrate_sphere_if_needed(
+        activity_sphere, cfg, on_progress=on_progress
+    )
 
     seed_urls = search_seed_urls(url or "")
     if not seed_urls and url:
@@ -319,14 +325,22 @@ def search_once(
                         skipped += 1
                         prog(f"  reject: {title0[:50]}")
                         continue
-                    rejected, _rej = hard_reject_out_of_sphere(
-                        title0, snip0, sphere=activity_sphere
+                    verdict, gate_r = title_sphere_gate(
+                        title0, sphere=activity_sphere, snippet=snip0
                     )
-                    if rejected:
+                    if verdict == "reject":
                         store.remember(link)
                         skipped += 1
-                        prog(f"  sphere-reject: {title0[:50]}")
+                        prog(f"  sphere-reject [{gate_r[0] if gate_r else 'gate'}]: {title0[:50]}")
                         continue
+                    # Calibrated reject patterns for unknown spheres
+                    if _cal_reject:
+                        tl0 = title0.lower()
+                        if any(title_matches_pattern(p, tl0) for p in _cal_reject):
+                            store.remember(link)
+                            skipped += 1
+                            prog(f"  sphere-calibrated-reject: {title0[:50]}")
+                            continue
                     candidates.append(c)
 
                 if max_deep > 0:
@@ -380,14 +394,22 @@ def search_once(
                         skipped += 1
                         prog(f"  reject: {', '.join(rej_reasons[:3])}")
                         continue
-                    rejected, rej_reasons = hard_reject_out_of_sphere(
-                        title, snippet, sphere=activity_sphere
+                    verdict, gate_r = title_sphere_gate(
+                        title, sphere=activity_sphere, snippet=snippet[:800]
                     )
-                    if rejected:
+                    if verdict == "reject":
                         store.remember(link)
                         skipped += 1
-                        prog(f"  sphere-reject: {', '.join(rej_reasons[:3])}")
+                        prog(f"  sphere-reject: {', '.join(gate_r[:3])}")
                         continue
+                    # Calibrated reject patterns for unknown spheres (post-fetch check)
+                    if _cal_reject:
+                        tl = title.lower()
+                        if any(title_matches_pattern(p, tl) for p in _cal_reject):
+                            store.remember(link)
+                            skipped += 1
+                            prog(f"  sphere-calibrated-reject: {title[:50]}")
+                            continue
 
                     prepared.append(
                         {

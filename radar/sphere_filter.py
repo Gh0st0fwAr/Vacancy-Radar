@@ -154,12 +154,86 @@ OUT_OF_SPHERE_TITLE: dict[str, Tuple[str, ...]] = {
         "врач ",
     ),
     "designer": (
+        # Sales / marketplace
         "менеджер по продажам",
+        "менеджер продаж",
         "sales manager",
+        "account manager",
+        "key account",
+        "торговый представитель",
+        "менеджер маркетплейс",
+        "менеджер по маркетплейс",
+        "менеджер ozon",
+        "менеджер wildberries",
+        "менеджер wb",
+        # Marketing / SMM / content
+        "smm",
+        "смм",
+        "smm-менеджер",
+        "smm менеджер",
+        "маркетолог",
+        "digital marketing",
+        "performance marketing",
+        "контент-маркетолог",
+        "content marketing",
+        "media buyer",
+        "медиабайер",
+        "таргетолог",
+        "brand manager",
+        "бренд-менеджер",
+        "бренд менеджер",
+        "контент-менеджер",
+        "content manager",
+        # HR / recruitment
         "рекрутер",
+        "recruiter",
+        "hr-менеджер",
+        "hr менеджер",
+        "hr manager",
+        "менеджер по персоналу",
+        "менеджер по подбору",
+        "специалист по подбору",
+        # Finance / legal / admin
         "бухгалтер",
+        "accountant",
+        "финансовый менеджер",
+        "финансовый аналитик",
+        "юрист",
+        "lawyer",
+        "ассистент руководителя",
+        "офис-менеджер",
+        "office manager",
+        # Data / analyst roles (not design)
+        "аналитик данных",
+        "data analyst",
+        "data scientist",
+        "бизнес-аналитик",
+        "системный аналитик",
+        "supply chain",
+        # Physical / service labor
         "водитель",
+        "курьер",
         "повар",
+        "официант",
+        "кассир",
+        "продавец-консультант",
+        "мерчандайзер",
+        # Dev roles — RU (existing)
+        "разработчик",
+        "programmer",
+        "программист",
+        "сисадмин",
+        # Dev roles — EN (broad catch via word-boundary match)
+        "developer",
+        "software engineer",
+        "solutions engineer",
+        "backend engineer",
+        "data engineer",
+        "ml engineer",
+        "python engineer",
+        "mobile developer",
+        "ios developer",
+        "android developer",
         "backend developer",
         "frontend developer",
         "fullstack developer",
@@ -168,61 +242,259 @@ OUT_OF_SPHERE_TITLE: dict[str, Tuple[str, ...]] = {
         "golang developer",
         "golang",
         "devops",
-        "сисадмин",
-        "разработчик",
-        "programmer",
-        "программист",
-        "software engineer",
         "qa engineer",
         "sdet",
         "web developer",
+        "cloud engineer",
     ),
     "qa": (
+        # Sales / marketplace
         "менеджер по продажам",
+        "менеджер продаж",
         "sales manager",
+        "account manager",
+        "key account",
+        "торговый представитель",
+        "менеджер маркетплейс",
+        "менеджер ozon",
+        "менеджер wildberries",
+        # Marketing / SMM
         "smm",
+        "смм",
         "маркетолог",
+        "digital marketing",
+        "performance marketing",
+        "контент-менеджер",
+        "content manager",
+        "brand manager",
+        "бренд-менеджер",
+        "медиабайер",
+        # HR / recruitment
         "рекрутер",
+        "recruiter",
+        "hr-менеджер",
+        "hr менеджер",
+        "hr manager",
+        "менеджер по персоналу",
+        "менеджер по подбору",
+        # Finance / legal / admin
         "бухгалтер",
+        "accountant",
+        "юрист",
+        "lawyer",
+        "офис-менеджер",
+        "office manager",
+        "ассистент руководителя",
+        # Physical / service labor
         "водитель",
-        "повар",
-    ),
-    "analyst": (
-        "менеджер по продажам",
-        "sales manager",
-        "smm",
-        "рекрутер",
-        "водитель",
+        "курьер",
         "повар",
         "официант",
+        "кассир",
+        "продавец-консультант",
+        "мерчандайзер",
+        "телемаркетолог",
+        "риелтор",
+        "риэлтор",
+        # Non-QA design roles
+        "дизайнер интерьер",
+    ),
+    "analyst": (
+        # Sales / marketplace
+        "менеджер по продажам",
+        "менеджер продаж",
+        "sales manager",
+        "account manager",
+        "key account",
+        "торговый представитель",
+        "менеджер маркетплейс",
+        "менеджер ozon",
+        "менеджер wildberries",
+        # Marketing / SMM
+        "smm",
+        "смм",
+        "маркетолог",
+        "digital marketing",
+        "контент-менеджер",
+        "brand manager",
+        "медиабайер",
+        "таргетолог",
+        # HR / recruitment
+        "рекрутер",
+        "recruiter",
+        "hr-менеджер",
+        "hr менеджер",
+        "hr manager",
+        "менеджер по персоналу",
+        "менеджер по подбору",
+        # Finance / legal / admin
+        "бухгалтер",
+        "accountant",
+        "юрист",
+        "lawyer",
+        "офис-менеджер",
+        "office manager",
+        "ассистент руководителя",
+        # Physical / service labor
+        "водитель",
+        "курьер",
+        "повар",
+        "официант",
+        "кассир",
+        "продавец-консультант",
+        "мерчандайзер",
+        "телемаркетолог",
+        "риелтор",
+        "риэлтор",
+        "медсестра",
     ),
     "devops": (
+        # Sales / marketplace
         "менеджер по продажам",
+        "менеджер продаж",
         "sales manager",
+        "account manager",
+        "key account",
+        "торговый представитель",
+        "менеджер маркетплейс",
+        "менеджер ozon",
+        "менеджер wildberries",
+        # Marketing / SMM
         "smm",
+        "смм",
         "маркетолог",
+        "digital marketing",
+        "контент-менеджер",
+        "content manager",
+        "brand manager",
+        "медиабайер",
+        # HR / recruitment
         "рекрутер",
+        "recruiter",
+        "hr-менеджер",
+        "hr менеджер",
+        "hr manager",
+        "менеджер по персоналу",
+        "менеджер по подбору",
+        # Finance / legal / admin
         "бухгалтер",
+        "accountant",
+        "юрист",
+        "lawyer",
+        "офис-менеджер",
+        "office manager",
+        "ассистент руководителя",
+        # Physical / service labor
+        "водитель",
+        "курьер",
+        "повар",
+        "официант",
+        "кассир",
+        "продавец-консультант",
+        "мерчандайзер",
+        "телемаркетолог",
+        "риелтор",
+        "риэлтор",
+        "медсестра",
+        # Non-devops design roles
         "дизайнер интерьера",
+        "дизайнер одежд",
+        "graphic designer",
+        "иллюстратор",
     ),
     "pm": (
+        # Sales / marketplace (careful: not all manager→reject for PM)
         "менеджер по продажам",
+        "менеджер продаж",
         "sales manager",
+        "торговый представитель",
+        "менеджер маркетплейс",
+        "менеджер ozon",
+        "менеджер wildberries",
+        # Marketing / SMM
         "smm-менеджер",
+        "smm менеджер",
+        "маркетолог",
+        "digital marketing",
+        "контент-менеджер",
         "телемаркетолог",
+        "медиабайер",
+        "таргетолог",
+        # HR / recruitment
+        "рекрутер",
+        "recruiter",
+        "hr-менеджер",
+        "hr менеджер",
+        "hr manager",
+        "менеджер по персоналу",
+        "менеджер по подбору",
+        # Finance / legal / admin
         "бухгалтер",
+        "accountant",
+        "юрист",
+        "lawyer",
+        "офис-менеджер",
+        "office manager",
+        "ассистент руководителя",
+        # Physical / service labor
         "водитель",
+        "курьер",
         "повар",
+        "официант",
+        "кассир",
+        "продавец-консультант",
+        "мерчандайзер",
+        "риелтор",
+        "риэлтор",
+        "медсестра",
     ),
     "support": (
+        # Sales / marketplace
         "менеджер по продажам",
+        "менеджер продаж",
         "sales manager",
+        "account manager",
+        "key account",
+        "торговый представитель",
+        "менеджер маркетплейс",
+        "менеджер ozon",
+        "менеджер wildberries",
+        # Marketing / SMM
         "smm",
+        "смм",
         "маркетолог",
+        "digital marketing",
+        "контент-менеджер",
+        "content manager",
+        "brand manager",
+        "медиабайер",
+        "таргетолог",
+        # HR / recruitment
         "рекрутер",
+        "recruiter",
+        "hr-менеджер",
+        "hr менеджер",
+        "hr manager",
+        "менеджер по персоналу",
+        # Finance / legal / admin
         "бухгалтер",
+        "accountant",
+        "юрист",
+        "lawyer",
+        "офис-менеджер",
+        "office manager",
+        # Physical / service labor
         "водитель",
+        "курьер",
         "повар",
+        "официант",
+        "кассир",
+        "продавец-консультант",
+        "мерчандайзер",
+        "телемаркетолог",
+        "риелтор",
+        "риэлтор",
+        "медсестра",
     ),
 }
 
@@ -478,7 +750,13 @@ _DEV_ROLE_FOR_DESIGNER = re.compile(
     r"frontend|backend|fullstack|full[\s-]?stack|"
     r"разработчик|programmer|программист|"
     r"golang|java\s+developer|devops|qa\s+engineer|sdet|"
-    r"software\s+engineer|web\s+developer|"
+    r"software\s+engineer|software\s+developer|"
+    r"web\s+developer|"
+    # Broad English catch — any "XXX developer/engineer" for dev roles.
+    r"\bdeveloper\b|"
+    r"solutions\s+engineer|data\s+engineer|ml\s+engineer|"
+    r"backend\s+engineer|python\s+engineer|mobile\s+developer|"
+    r"ios\s+developer|android\s+developer|cloud\s+engineer|"
     r"team\s+lead\s+(frontend|backend|fullstack|разработ)|"
     r"lead\s+(frontend|backend|developer|разработ)|"
     r"руководитель\s+разработ"
@@ -494,6 +772,11 @@ _DEV_SALES_BLOCK = (
     "рекрутер",
     "бухгалтер",
 )
+
+
+def title_matches_pattern(pat: str, title_lower: str) -> bool:
+    """Public wrapper: match a single sphere-reject pattern against a lowercase title."""
+    return _title_matches_pattern(pat, title_lower)
 
 
 def _title_matches_pattern(pat: str, title_l: str) -> bool:
@@ -594,15 +877,34 @@ def title_sphere_gate(
 
 
 def normalize_sphere_category(sphere: str) -> Optional[str]:
-    """Map free-text sphere to a known category, or None if unknown."""
+    """Map free-text sphere to a known category, or None if unknown.
+
+    Uses word-boundary-aware longest-match so that e.g. "devops" is not
+    mis-classified as "developer" due to the short alias "dev".
+    """
     s = str(sphere or "").strip().lower()
     if not s:
         return None
+
+    best_cat: Optional[str] = None
+    best_len = 0
+
     for cat, aliases in SPHERE_ALIASES.items():
         for a in aliases:
-            if a in s:
-                return cat
-    return None
+            if a not in s:
+                continue
+            idx = s.find(a)
+            # Require word boundary: alias must not be embedded in a longer word.
+            before_ok = idx == 0 or not (s[idx - 1].isalpha() or s[idx - 1] == "_")
+            after_idx = idx + len(a)
+            after_ok = after_idx >= len(s) or not (
+                s[after_idx].isalpha() or s[after_idx] == "_"
+            )
+            if before_ok and after_ok and len(a) > best_len:
+                best_cat = cat
+                best_len = len(a)
+
+    return best_cat
 
 
 def build_sphere_prompt_block(
@@ -711,6 +1013,17 @@ def hard_reject_out_of_sphere(
     if cat == "designer":
         if _DEV_ROLE_FOR_DESIGNER.search(title_l) and not _DESIGN_POSITIVE.search(title_l):
             return True, ["sphere-reject:dev-title-for-designer"]
+        # Marketplace / non-design operations titles
+        if re.search(
+            r"(?i)(менеджер\s+(маркетплейс|по\s+маркетплейс|wb\b|wildberries|ozon)|"
+            r"менеджер\s+по\s+работе\s+с\s+(маркетплейс|клиент)|"
+            r"аналитик\s+(данных|data)|data\s+(analyst|scientist)|"
+            r"hr[\s-]|менеджер\s+по\s+персоналу|менеджер\s+по\s+подбору|"
+            r"маркетолог|smm[\s-]|digital\s+marketing|performance\s+marketing|"
+            r"финансовый\s+(менеджер|аналитик|контрол))",
+            title_l,
+        ) and not _DESIGN_POSITIVE.search(title_l):
+            return True, ["sphere-reject:non-design-ops"]
 
     # Developer: marketplace operator / call-center without any tech signal
     if cat == "developer":

@@ -97,6 +97,35 @@ ${prefsBlock || "(empty)"}
 Analyze: are the buckets well-calibrated for this candidate? Any suggestions?`;
 }
 
+function buildSphereCalibrationPrompt(p) {
+  const sphere = String(p.sphere || "").trim();
+  return `You help calibrate vacancy title filters for a job-search sphere: «${sphere}»
+
+Return ONLY one JSON object — no markdown fences, no explanation:
+{
+  "reject": ["keyword1", "keyword2", ...],
+  "pass": ["keyword1", "keyword2", ...]
+}
+
+"reject" = short keyword phrases (1-4 words) that CLEARLY indicate a vacancy title is NOT a «${sphere}» role.
+"pass"   = short keyword phrases (1-4 words) that CLEARLY indicate a vacancy title IS a «${sphere}» role.
+
+Rules:
+- Russian and English patterns both OK; prefer the dominant language on hh.ru (Russian).
+- Keep each phrase SHORT (1-4 words).
+- Generate 10-20 reject patterns and 5-15 pass patterns.
+- Be CONSERVATIVE — only list patterns with near-zero false-positive risk.
+- Do NOT list patterns that could appear in legitimate «${sphere}» job titles.
+
+Example for sphere «курьер»:
+{
+  "reject": ["менеджер по продажам", "разработчик", "дизайнер", "бухгалтер", "маркетолог", "рекрутер", "программист", "тестировщик", "системный администратор", "аналитик", "продакт менеджер"],
+  "pass": ["курьер", "доставщик", "delivery", "экспедитор", "велокурьер"]
+}
+
+Target sphere: «${sphere}»`;
+}
+
 function extractJson(text) {
   const s = String(text || "").trim();
 
@@ -162,6 +191,8 @@ async function main() {
   const prompt =
     mode === "preferences"
       ? buildPreferencesPrompt(payload)
+      : mode === "sphere_calibration"
+      ? buildSphereCalibrationPrompt(payload)
       : buildProfilePrompt(payload);
 
   const result = await Agent.prompt(prompt, {
